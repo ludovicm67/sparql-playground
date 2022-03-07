@@ -1,5 +1,5 @@
 import { createContext, ReactChild, useEffect, useState } from "react";
-import init, * as oxigraph from "oxigraph/web.js";
+import init, * as oxigraph from "oxigraph/web";
 
 type Props = {
   children?: ReactChild | ReactChild[];
