@@ -8,7 +8,7 @@ import Results from "./Results";
 const Interface = () => {
   const store = useContext(StoreContext);
   const [query, setQuery] = useState<string>(
-    "CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }"
+    "CONSTRUCT { ?s ?p ?o }\nWHERE { ?s ?p ?o }"
   );
   const [results, setResults] = useState<QueryResult>("");
   const [error, setError] = useState<string | undefined>();
@@ -24,7 +24,7 @@ const Interface = () => {
       const queryResults = store.query(query);
       const parsedResults = handleResults(queryResults);
 
-      setResults(JSON.stringify(parsedResults, null, 2));
+      setResults(parsedResults);
       setError(undefined);
     } catch (e: any) {
       setError(e.message);
