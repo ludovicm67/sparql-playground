@@ -6,9 +6,15 @@ import Results from "./Results";
 
 const Interface = () => {
   const store = useContext(StoreContext);
-  const [query, setQuery] = useState<string>(
-    "CONSTRUCT { ?s ?p ?o }\nWHERE { ?s ?p ?o }"
-  );
+  const [query, setQuery] =
+    useState<string>(`PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+# Get the 10th first triples
+SELECT * WHERE {
+  ?sub ?pred ?obj .
+} LIMIT 10
+`);
   const [results, setResults] = useState<QueryResult>("");
   const [error, setError] = useState<string | undefined>();
 
@@ -31,6 +37,7 @@ const Interface = () => {
 
   return (
     <div>
+      <h1>SPARQL Playground</h1>
       <div>
         <Editor
           height="50vh"
@@ -38,6 +45,10 @@ const Interface = () => {
           defaultLanguage="sparql"
           language="sparql"
           theme="vs-dark"
+          options={{
+            scrollBeyondLastLine: false,
+            fontSize: 24,
+          }}
           onChange={(e) => setQuery(`${e}`)}
         />
         <button onClick={execQuery}>Run query</button>
