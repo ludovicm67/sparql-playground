@@ -1,5 +1,16 @@
-import { createContext, ReactChild, useEffect, useState } from "react";
+import {
+  createContext,
+  JSXElementConstructor,
+  ReactElement,
+  useEffect,
+  useState,
+} from "react";
 import init, * as oxigraph from "oxigraph/web";
+
+type ReactChild =
+  | string
+  | number
+  | ReactElement<any, string | JSXElementConstructor<any>>;
 
 type Props = {
   children?: ReactChild | ReactChild[];

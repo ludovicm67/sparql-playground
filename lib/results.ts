@@ -33,7 +33,6 @@ export type QueryResult =
     }
   | string;
 
-
 export const askResult = (queryResults: boolean): QueryResult => {
   return {
     head: {},
@@ -50,7 +49,9 @@ export const emptyResult = (): QueryResult => {
   };
 };
 
-export const selectResult = (queryResults: Map<string, Term>[]): QueryResult => {
+export const selectResult = (
+  queryResults: Map<string, Term>[]
+): QueryResult => {
   const vars = new Set<string>();
 
   const bindings = queryResults.map((line): QueryResultBinding => {
