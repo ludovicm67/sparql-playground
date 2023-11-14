@@ -6,6 +6,7 @@ import {
   useState,
 } from "react";
 import init, * as oxigraph from "oxigraph/web";
+import persons from "../resources/data/persons";
 
 type ReactChild =
   | string
@@ -26,6 +27,8 @@ const StoreProvider: React.FC<Props> = ({ children }) => {
   useEffect(() => {
     init().then(() => {
       const store = new oxigraph.Store();
+      store.load(persons, "text/turtle", undefined, undefined);
+
       setStore(store);
     });
   }, []);

@@ -1,7 +1,6 @@
 import { useContext, useState } from "react";
 import Editor from "@monaco-editor/react";
 import { StoreContext } from "./StoreProvider";
-import persons from "../resources/data/persons";
 import { handleResults, QueryResult } from "../lib/results";
 import Results from "./Results";
 
@@ -16,8 +15,6 @@ const Interface = () => {
   if (!store) {
     return <div>Missing store!</div>;
   }
-
-  store.load(persons, "text/turtle", undefined, undefined);
 
   const execQuery = () => {
     try {
