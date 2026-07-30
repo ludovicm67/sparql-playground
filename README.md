@@ -33,6 +33,52 @@ says so explicitly when a request fails that way.
 
 [Oxigraph]: https://github.com/oxigraph/oxigraph
 
+## Explore mode
+
+The **Explore** tab swaps the editor for a browser and a canvas, against the
+same connection.
+
+On the left, every class in the dataset with its instance count; open one to
+page through its instances. Both lists load more as you scroll. Each row has a
+button to open the matching query back in **Query** mode.
+
+Drag a class or an instance onto the canvas — or use its **+**. Dropping an IRI
+asks the endpoint how it relates to what is already there, in both directions,
+and draws the predicates it finds. Between classes it also looks for
+*schema-level* links: a predicate whose subjects are instances of one class and
+whose objects are instances of another.
+
+Click a node to list its predicates, then a predicate to list its values. Tick
+any of them — or **Select all** — to drop them onto the canvas, already wired to
+the node they came from. Literals land as nodes too.
+
+Drag nodes to arrange them, drag the background to pan, scroll to zoom, and use
+the percentage in the header to reset the view. The **tidy** button runs a
+force-directed layout and fits the result to the window; it starts from where
+the nodes already are, so running it twice settles rather than reshuffles.
+
+### Canvases
+
+Each connection has its own set of canvases, listed as tabs above the graph.
+Add one with **+**, click the active tab to rename it, and use its **×** to
+delete it. Everything — node positions, zoom, which tab was open — is saved in
+this browser per connection, so it is all still there after a reload.
+
+Emptying a canvas drops its stored entry, deleting a connection takes its
+canvases with it, and **Clear all stored data** removes them all.
+
+The share button on a canvas produces a link that carries the whole graph, its
+layout and its name, alongside the endpoint — the same fragment-based link
+described below. Opening it adds the canvas as a new tab rather than replacing
+anything. Large canvases make long links, and the dialog says so when one gets
+long enough that chat clients are likely to cut it.
+
+Every explore query is bounded with `LIMIT`, and the canvas asks nothing of the
+endpoint until you interact with it. Two caveats on large public endpoints: the
+class list is a `GROUP BY` over every typed subject, and the schema-level link
+query is the most expensive thing here — both can be slow, and a failure leaves
+the canvas without those edges rather than breaking it.
+
 ## Editor intelligence
 
 The editor is backed by [Qlue-ls], a SPARQL language server compiled to

@@ -38,10 +38,17 @@ import {
   removeHistoryEntry,
   saveHistory,
 } from "../lib/history";
+import { pruneCanvases } from "../lib/canvas";
 import { runQuery } from "../lib/sparql";
-import { applyShare, parseShareFragment, SharedNotice } from "../lib/share";
+import {
+  applyShare,
+  parseShareFragment,
+  SharedCanvas,
+  SharedNotice,
+} from "../lib/share";
 import { clearStoredData } from "../lib/storage";
 import ConnectionDialog from "./ConnectionDialog";
+import Explore from "./Explore";
 import ShareDialog from "./ShareDialog";
 import GraphMark from "./GraphMark";
 import Results from "./Results";
@@ -50,6 +57,7 @@ import {
   AlertIcon,
   CloseIcon,
   FormatIcon,
+  GraphIcon,
   ShareIcon,
   SidebarIcon,
   SpinnerIcon,
@@ -96,6 +104,7 @@ const bootstrap = () => {
       activeId: loadActiveConnectionId(stored),
       query: defaultExample.query,
       activeExample: defaultExample.id as string | undefined,
+      canvas: undefined as SharedCanvas | undefined,
       notice: undefined as SharedNotice | undefined,
       fromLink: false,
     };
@@ -107,6 +116,7 @@ const bootstrap = () => {
     activeId: applied.activeId,
     query: applied.query,
     activeExample: undefined as string | undefined,
+    canvas: applied.canvas,
     notice: applied.notice,
     fromLink: true,
   };
@@ -128,7 +138,16 @@ const Interface = () => {
   );
   const [notice, setNotice] = useState(initial.notice);
   const [sharing, setSharing] = useState(false);
+  const [sharingCanvas, setSharingCanvas] = useState<
+    (SharedCanvas & { nodeCount: number }) | undefined
+  >();
   const [formatting, setFormatting] = useState(false);
+  const [mode, setMode] = useState<"query" | "explore">("query");
+  // Explore is mounted on first use, then kept alive: its opening query is not
+  // worth running for someone who never leaves Query mode, but the canvas they
+  // built should survive switching back and forth.
+  const [exploreOpened, setExploreOpened] = useState(false);
+  const [storageGeneration, setStorageGeneration] = useState(0);
   const editorRef = useRef<Parameters<OnMount>[0] | undefined>(undefined);
   const [results, setResults] = useState<QueryResult | undefined>();
   const [stats, setStats] = useState<RunStats | undefined>();
@@ -381,13 +400,11 @@ const Interface = () => {
       (candidate) => candidate.id !== connection.id
     );
 
+    const remainingIds = remaining.map((candidate) => candidate.id);
+
     setConnections(remaining);
-    setHistory((current) =>
-      pruneHistory(
-        current,
-        remaining.map((candidate) => candidate.id)
-      )
-    );
+    setHistory((current) => pruneHistory(current, remainingIds));
+    pruneCanvases(remainingIds);
 
     if (activeId === connection.id) {
       clearResults();
@@ -405,7 +422,7 @@ const Interface = () => {
   const resetEverything = () => {
     if (
       !window.confirm(
-        "Remove every saved connection and all query history from this browser?"
+        "Remove every saved connection, query history and canvas from this browser?"
       )
     ) {
       return;
@@ -416,6 +433,9 @@ const Interface = () => {
     setConnections([localConnection()]);
     setActiveId(LOCAL_CONNECTION_ID);
     setHistory({});
+    // Explore owns its canvas state, so bump its key to remount it against the
+    // now-empty storage; otherwise its debounced save writes the graph back.
+    setStorageGeneration((generation) => generation + 1);
   };
 
   const loadExample = (id: string) => {
@@ -451,6 +471,30 @@ const Interface = () => {
                 : `Querying ${hostOf(activeConnection.endpoint)}`}
             </p>
           </div>
+        </div>
+
+        <div className="mode-switch" role="group" aria-label="Mode">
+          <button
+            className="segment"
+            type="button"
+            aria-pressed={mode === "query"}
+            onClick={() => setMode("query")}
+          >
+            <FormatIcon size={13} />
+            Query
+          </button>
+          <button
+            className="segment"
+            type="button"
+            aria-pressed={mode === "explore"}
+            onClick={() => {
+              setExploreOpened(true);
+              setMode("explore");
+            }}
+          >
+            <GraphIcon size={13} />
+            Explore
+          </button>
         </div>
 
         <div className="header-meta">
@@ -500,10 +544,17 @@ const Interface = () => {
               </>
             ) : (
               <>
-                Opened a shared query against your existing{" "}
-                <b>{notice.connectionName}</b> connection.
+                Opened a shared {notice.canvasName ? "canvas" : "query"} against your
+                existing <b>{notice.connectionName}</b> connection.
               </>
             )}
+            {notice.canvasName ? (
+              <>
+                {" "}
+                The canvas <b>{notice.canvasName}</b> is waiting in{" "}
+                <b>Explore</b>.
+              </>
+            ) : null}
           </p>
           <button
             className="icon-btn"
@@ -560,7 +611,24 @@ const Interface = () => {
           />
         ) : null}
 
-        <main className="workspace">
+        {exploreOpened ? (
+          <Explore
+            key={`${activeConnection.id}:${storageGeneration}`}
+            connection={activeConnection}
+            store={store}
+            hidden={mode !== "explore"}
+            incomingCanvas={initial.canvas}
+            onOpenQuery={(text) => {
+              setQuery(text);
+              setActiveExample(undefined);
+              clearResults();
+              setMode("query");
+            }}
+            onShareCanvas={setSharingCanvas}
+          />
+        ) : null}
+
+        <main className="workspace" hidden={mode !== "query"}>
           <section className="panel" aria-label="Query">
             <div className="panel-header">
               <span className="panel-title">Query</span>
@@ -721,11 +789,15 @@ const Interface = () => {
         </main>
       </div>
 
-      {sharing ? (
+      {sharing || sharingCanvas ? (
         <ShareDialog
           connection={activeConnection}
           query={query}
-          onClose={() => setSharing(false)}
+          canvas={sharingCanvas}
+          onClose={() => {
+            setSharing(false);
+            setSharingCanvas(undefined);
+          }}
         />
       ) : null}
 

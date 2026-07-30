@@ -89,6 +89,31 @@ export const SidebarIcon = ({ size = 17 }: IconProps) => (
   </svg>
 );
 
+export const LayoutIcon = ({ size = 15 }: IconProps) => (
+  <svg {...base(size)}>
+    <circle cx="12" cy="5.5" r="2.4" />
+    <circle cx="5" cy="17" r="2.4" />
+    <circle cx="19" cy="17" r="2.4" />
+    <path d="M10.4 7.6 6.4 14.9M13.6 7.6l4 7.3M7.4 17h9.2" />
+  </svg>
+);
+
+export const QueryIcon = ({ size = 14 }: IconProps) => (
+  <svg {...base(size)}>
+    <path d="M4 6h16M4 12h10M4 18h6" />
+    <path d="m15.5 15.5 4.5 4.5M18 13.5v4M16 15.5h4" />
+  </svg>
+);
+
+export const GraphIcon = ({ size = 15 }: IconProps) => (
+  <svg {...base(size)}>
+    <circle cx="6" cy="17" r="2.6" />
+    <circle cx="18" cy="17" r="2.6" />
+    <circle cx="12" cy="6" r="2.6" />
+    <path d="m10.5 8.2-3 6.6M13.5 8.2l3 6.6M8.6 17h6.8" />
+  </svg>
+);
+
 export const FormatIcon = ({ size = 15 }: IconProps) => (
   <svg {...base(size)}>
     <path d="M4 5.5h16M7 10h13M7 14.5h9M4 19h16" />

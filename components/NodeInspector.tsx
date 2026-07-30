@@ -1,0 +1,282 @@
+import { useCallback, useState } from "react";
+import {
+  displayTerm,
+  isReferenceable,
+  localName,
+  ObjectEntry,
+  PredicateEntry,
+  termKey,
+  TermRef,
+} from "../lib/explore";
+import { GraphNode } from "../lib/graph";
+import { nearBottom, usePagedQuery } from "../lib/usePagedQuery";
+import {
+  ChevronUpIcon,
+  ChipIcon,
+  CloseIcon,
+  CloudIcon,
+  PlusIcon,
+  QueryIcon,
+} from "./icons";
+
+type Props = {
+  node: GraphNode;
+  objectPageSize: number;
+  loadPredicates: () => Promise<PredicateEntry[]>;
+  loadObjects: (predicate: string, offset: number) => Promise<ObjectEntry[]>;
+  onAddObjects: (predicate: string, terms: TermRef[]) => void;
+  onQueryNode: () => void;
+  onClose: () => void;
+};
+
+const PredicateList: React.FC<{
+  load: () => Promise<PredicateEntry[]>;
+  onPick: (predicate: PredicateEntry) => void;
+}> = ({ load, onPick }) => {
+  const loadPage = useCallback(
+    async (offset: number) => (offset === 0 ? load() : []),
+    [load]
+  );
+  const { items, loading, error } = usePagedQuery(loadPage, Number.MAX_SAFE_INTEGER);
+
+  return (
+    <div className="explore-list">
+      {error ? (
+        <div className="explore-error" role="alert">
+          {error}
+        </div>
+      ) : null}
+      {!loading && !error && items.length === 0 ? (
+        <p className="sidebar-empty">Nothing links out of this node.</p>
+      ) : null}
+
+      <ul className="explore-rows">
+        {items.map((predicate) => (
+          <li key={predicate.iri}>
+            <div className="explore-row">
+              <button
+                className="explore-row-main"
+                type="button"
+                onClick={() => onPick(predicate)}
+                title={predicate.iri}
+              >
+                <span className="explore-row-text">
+                  <span className="explore-row-primary">{localName(predicate.iri)}</span>
+                  <span className="explore-row-secondary">{predicate.iri}</span>
+                </span>
+                {predicate.count === undefined ? null : (
+                  <span className="explore-count">
+                    {predicate.count.toLocaleString()}
+                  </span>
+                )}
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      {loading ? <p className="explore-loading">Loading…</p> : null}
+    </div>
+  );
+};
+
+const ObjectList: React.FC<{
+  predicate: PredicateEntry;
+  pageSize: number;
+  load: (offset: number) => Promise<ObjectEntry[]>;
+  onAdd: (terms: TermRef[]) => void;
+}> = ({ predicate, pageSize, load, onAdd }) => {
+  const { items, loading, error, exhausted, loadMore } = usePagedQuery(load, pageSize);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const addable = items.filter((item) => isReferenceable(item.term));
+  const allSelected = addable.length > 0 && selected.size === addable.length;
+
+  const toggle = (key: string) =>
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+
+  const toggleAll = () =>
+    setSelected(
+      allSelected ? new Set() : new Set(addable.map((item) => termKey(item.term)))
+    );
+
+  const addSelected = () => {
+    const terms = addable
+      .filter((item) => selected.has(termKey(item.term)))
+      .map((item) => item.term);
+
+    if (terms.length > 0) {
+      onAdd(terms);
+      setSelected(new Set());
+    }
+  };
+
+  return (
+    <>
+      <div className="explore-list" onScroll={(e) => nearBottom(e.currentTarget) && loadMore()}>
+        {error ? (
+          <div className="explore-error" role="alert">
+            {error}
+          </div>
+        ) : null}
+        {!loading && !error && items.length === 0 ? (
+          <p className="sidebar-empty">No values for this predicate.</p>
+        ) : null}
+
+        {addable.length > 0 ? (
+          <label className="checkbox explore-select-all">
+            <input type="checkbox" checked={allSelected} onChange={toggleAll} />
+            <span>
+              Select all {exhausted ? "" : "loaded "}({addable.length})
+            </span>
+          </label>
+        ) : null}
+
+        <ul className="explore-rows">
+          {items.map((item) => {
+            const key = termKey(item.term);
+            const canAdd = isReferenceable(item.term);
+
+            return (
+              <li key={key}>
+                <label
+                  className={`explore-row explore-object${canAdd ? "" : " is-disabled"}`}
+                  title={item.term.value}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected.has(key)}
+                    disabled={!canAdd}
+                    onChange={() => toggle(key)}
+                  />
+                  <span className="explore-row-text">
+                    <span
+                      className={`explore-row-primary term-${
+                        item.term.type === "uri" ? "uri" : "literal"
+                      }`}
+                    >
+                      {displayTerm(item.term)}
+                    </span>
+                    {item.term.type === "uri" ? (
+                      <span className="explore-row-secondary">{item.term.value}</span>
+                    ) : null}
+                  </span>
+                </label>
+              </li>
+            );
+          })}
+        </ul>
+
+        {loading ? <p className="explore-loading">Loading…</p> : null}
+        {!loading && !exhausted && items.length > 0 ? (
+          <button className="btn-ghost explore-more" type="button" onClick={loadMore}>
+            Load more
+          </button>
+        ) : null}
+      </div>
+
+      <div className="inspector-footer">
+        <button
+          className="btn-run"
+          type="button"
+          onClick={addSelected}
+          disabled={selected.size === 0}
+        >
+          <PlusIcon size={13} />
+          Add {selected.size > 0 ? selected.size : ""} to canvas
+        </button>
+        <span className="field-hint">via {localName(predicate.iri)}</span>
+      </div>
+    </>
+  );
+};
+
+const NodeInspector: React.FC<Props> = ({
+  node,
+  objectPageSize,
+  loadPredicates,
+  loadObjects,
+  onAddObjects,
+  onQueryNode,
+  onClose,
+}) => {
+  const [predicate, setPredicate] = useState<PredicateEntry | undefined>();
+
+  const objects = useCallback(
+    (offset: number) => loadObjects(predicate?.iri ?? "", offset),
+    [loadObjects, predicate]
+  );
+
+  return (
+    <aside className="inspector" aria-label="Node details">
+      <div className="panel-header">
+        {predicate ? (
+          <button
+            className="explore-back"
+            type="button"
+            onClick={() => setPredicate(undefined)}
+          >
+            <ChevronUpIcon size={13} />
+            <span className="panel-title">Predicates</span>
+          </button>
+        ) : (
+          <span className="panel-title">Predicates</span>
+        )}
+
+        <div className="panel-header-actions">
+          {node.term.type === "uri" ? (
+            <button
+              className="icon-btn"
+              type="button"
+              onClick={onQueryNode}
+              aria-label="Open as a query"
+              title="Open as a query"
+            >
+              <QueryIcon size={13} />
+            </button>
+          ) : null}
+          <button
+            className="icon-btn"
+            type="button"
+            onClick={onClose}
+            aria-label="Close the inspector"
+          >
+            <CloseIcon size={14} />
+          </button>
+        </div>
+      </div>
+
+      <div className="explore-context" title={node.term.value}>
+        {node.kind === "class" ? <ChipIcon size={13} /> : <CloudIcon size={13} />}
+        <span>{node.label ?? displayTerm(node.term)}</span>
+      </div>
+
+      {predicate ? (
+        <>
+          <div className="inspector-predicate" title={predicate.iri}>
+            {localName(predicate.iri)}
+          </div>
+          <ObjectList
+            key={`${node.id}:${predicate.iri}`}
+            predicate={predicate}
+            pageSize={objectPageSize}
+            load={objects}
+            onAdd={(terms) => onAddObjects(predicate.iri, terms)}
+          />
+        </>
+      ) : (
+        <PredicateList key={node.id} load={loadPredicates} onPick={setPredicate} />
+      )}
+    </aside>
+  );
+};
+
+export default NodeInspector;

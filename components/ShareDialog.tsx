@@ -1,15 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Connection, isLocal } from "../lib/connections";
-import { buildSharePayload, buildShareUrl, hasSecrets } from "../lib/share";
+import {
+  buildSharePayload,
+  buildShareUrl,
+  hasSecrets,
+  SharedCanvas,
+} from "../lib/share";
 import { AlertIcon, CheckIcon, CloseIcon, CopyIcon } from "./icons";
 
 type Props = {
   connection: Connection;
   query: string;
+  /** Present when sharing from Explore rather than the query editor. */
+  canvas?: SharedCanvas & { nodeCount: number };
   onClose: () => void;
 };
 
-const ShareDialog: React.FC<Props> = ({ connection, query, onClose }) => {
+/**
+ * Links much longer than this survive browsers but get mangled by chat clients
+ * and mail, so say so rather than letting a broken link go out.
+ */
+const LONG_URL = 8000;
+
+const ShareDialog: React.FC<Props> = ({ connection, query, canvas, onClose }) => {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const secrets = hasSecrets(connection);
 
@@ -25,8 +38,18 @@ const ShareDialog: React.FC<Props> = ({ connection, query, onClose }) => {
   }, []);
 
   const url = useMemo(
-    () => buildShareUrl(buildSharePayload(connection, query, includeSecrets)),
-    [connection, query, includeSecrets]
+    () =>
+      buildShareUrl(
+        buildSharePayload(
+          connection,
+          query,
+          includeSecrets,
+          canvas
+            ? { name: canvas.name, graph: canvas.graph, viewport: canvas.viewport }
+            : undefined
+        )
+      ),
+    [connection, query, includeSecrets, canvas]
   );
 
   const copy = async () => {
@@ -64,7 +87,7 @@ const ShareDialog: React.FC<Props> = ({ connection, query, onClose }) => {
     <dialog className="dialog" ref={dialogRef} onCancel={onClose} onClose={onClose}>
       <div className="dialog-form">
         <header className="dialog-header">
-          <h2>Share this query</h2>
+          <h2>{canvas ? `Share “${canvas.name}”` : "Share this query"}</h2>
           <button className="icon-btn" type="button" onClick={onClose} aria-label="Close">
             <CloseIcon />
           </button>
@@ -72,7 +95,12 @@ const ShareDialog: React.FC<Props> = ({ connection, query, onClose }) => {
 
         <div className="dialog-body">
           <p className="share-summary">
-            The link carries the query and{" "}
+            The link carries{" "}
+            {canvas
+              ? `the canvas (${canvas.nodeCount} ${
+                  canvas.nodeCount === 1 ? "node" : "nodes"
+                }, with their positions) and `
+              : "the query and "}
             {isLocal(connection) ? (
               <>
                 points at the <b>built-in store</b>, so anyone can open it.
@@ -134,6 +162,14 @@ const ShareDialog: React.FC<Props> = ({ connection, query, onClose }) => {
                 {copied ? "Copied" : "Copy"}
               </button>
             </div>
+            {url.length > LONG_URL ? (
+              <span className="field-warning">
+                <AlertIcon size={13} />
+                This link is {Math.round(url.length / 1000)}k characters. Browsers
+                cope, but chat clients and mail often cut long links — trim the
+                canvas down if it does not survive the trip.
+              </span>
+            ) : null}
             <span className="field-hint">
               Everything after <code>#</code> stays in the browser: the fragment
               is never sent to the server hosting this page.
