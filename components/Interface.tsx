@@ -263,10 +263,11 @@ const Interface = () => {
     }
   };
 
-  const runHistoryEntry = (entry: HistoryEntry) => {
+  // Loads the query into the editor only: picking something out of the history
+  // should never fire a request on its own.
+  const loadHistoryEntry = (entry: HistoryEntry) => {
     setQuery(entry.query);
     setActiveExample(undefined);
-    void execute(entry.query, activeConnection);
   };
 
   const resetEverything = () => {
@@ -376,7 +377,7 @@ const Interface = () => {
             onMove={(index, direction) =>
               setConnections((current) => reorder(current, index, direction))
             }
-            onRunHistoryEntry={runHistoryEntry}
+            onSelectHistoryEntry={loadHistoryEntry}
             onDeleteHistoryEntry={(entry) =>
               setHistory((current) =>
                 removeHistoryEntry(current, activeConnection.id, entry.id)

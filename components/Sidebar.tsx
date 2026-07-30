@@ -26,7 +26,7 @@ type Props = {
   onEdit: (connection: Connection) => void;
   onDelete: (connection: Connection) => void;
   onMove: (index: number, direction: -1 | 1) => void;
-  onRunHistoryEntry: (entry: HistoryEntry) => void;
+  onSelectHistoryEntry: (entry: HistoryEntry) => void;
   onDeleteHistoryEntry: (entry: HistoryEntry) => void;
   onClearHistory: () => void;
   onClearStoredData: () => void;
@@ -42,7 +42,7 @@ const Sidebar: React.FC<Props> = ({
   onEdit,
   onDelete,
   onMove,
-  onRunHistoryEntry,
+  onSelectHistoryEntry,
   onDeleteHistoryEntry,
   onClearHistory,
   onClearStoredData,
@@ -167,8 +167,8 @@ const Sidebar: React.FC<Props> = ({
                 <button
                   className="history-main"
                   type="button"
-                  onClick={() => onRunHistoryEntry(entry)}
-                  title={entry.query}
+                  onClick={() => onSelectHistoryEntry(entry)}
+                  title={`Load this query into the editor:\n\n${entry.query}`}
                 >
                   <span className="history-query">{summarizeQuery(entry.query)}</span>
                   <span className="history-meta">
