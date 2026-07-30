@@ -1,5 +1,5 @@
 import Editor from "@monaco-editor/react";
-import { QueryResult } from "../lib/results";
+import { type QueryResult } from "../lib/results";
 import { defineEditorTheme, EDITOR_THEME } from "../lib/monaco";
 import TermCell from "./TermCell";
 

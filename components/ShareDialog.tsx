@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Connection, isLocal } from "../lib/connections";
+import { type Connection, isLocal } from "../lib/connections";
 import {
   buildSharePayload,
   buildShareUrl,
   hasSecrets,
-  SharedCanvas,
+  type SharedCanvas,
 } from "../lib/share";
 import { AlertIcon, CheckIcon, CloseIcon, CopyIcon } from "./icons";
 

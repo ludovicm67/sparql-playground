@@ -1,5 +1,5 @@
-import { isSafeIri, NodeKind, TermRef } from "./explore";
-import { edgeId, emptyGraph, Graph, GraphEdge, GraphNode, nodeId } from "./graph";
+import { isSafeIri, type NodeKind, type TermRef } from "./explore";
+import { edgeId, emptyGraph, type Graph, type GraphEdge, type GraphNode, nodeId } from "./graph";
 import { newId, readJson, STORAGE_KEYS, writeJson } from "./storage";
 
 export type StoredViewport = { x: number; y: number; scale: number };

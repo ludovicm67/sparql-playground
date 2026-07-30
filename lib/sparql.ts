@@ -1,6 +1,6 @@
 import type * as oxigraph from "oxigraph/web";
-import { Connection, RemoteConnection } from "./connections";
-import { handleResults, QueryResult } from "./results";
+import { type Connection, type RemoteConnection } from "./connections";
+import { handleResults, type QueryResult } from "./results";
 
 /**
  * The cheapest query that still proves an endpoint speaks SPARQL: an empty

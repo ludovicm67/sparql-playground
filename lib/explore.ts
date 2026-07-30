@@ -1,4 +1,4 @@
-import { QueryResult, QueryResultBinding, QueryResultBindingValue } from "./results";
+import { type QueryResult, type QueryResultBinding, type QueryResultBindingValue } from "./results";
 
 /** A term as it travels through the explorer. */
 export type TermRef =

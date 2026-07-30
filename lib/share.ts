@@ -2,19 +2,19 @@ import {
   sanitizeCanvasName,
   sanitizeGraph,
   sanitizeViewport,
-  StoredViewport,
+  type StoredViewport,
 } from "./canvas";
 import {
-  Connection,
-  HttpHeader,
+  type Connection,
+  type HttpHeader,
   isLocal,
   LOCAL_CONNECTION_ID,
-  RemoteConnection,
+  type RemoteConnection,
   REQUEST_METHODS,
-  RequestMethod,
+  type RequestMethod,
 } from "./connections";
 import { isSafeIri } from "./explore";
-import { Graph } from "./graph";
+import { type Graph } from "./graph";
 import { newId } from "./storage";
 
 /**

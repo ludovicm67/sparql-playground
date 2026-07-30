@@ -1,11 +1,11 @@
-import { Connection, describeConnection, isLocal } from "../lib/connections";
+import { type Connection, describeConnection, isLocal } from "../lib/connections";
 import {
   formatRelativeTime,
-  HistoryEntry,
+  type HistoryEntry,
   summarizeQuery,
 } from "../lib/history";
 import { localName } from "../lib/explore";
-import { ResourceEntry } from "../lib/resources";
+import { type ResourceEntry } from "../lib/resources";
 import {
   AUTHOR_URL,
   COMMIT_DIRTY,

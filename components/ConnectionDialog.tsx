@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import type * as oxigraph from "oxigraph/web";
 import {
-  Connection,
-  HttpHeader,
-  RemoteConnection,
+  type Connection,
+  type HttpHeader,
+  type RemoteConnection,
   REQUEST_METHODS,
-  RequestMethod,
+  type RequestMethod,
 } from "../lib/connections";
-import { PROBE_QUERY, probeConnection, ProbeResult } from "../lib/sparql";
+import { PROBE_QUERY, probeConnection, type ProbeResult } from "../lib/sparql";
 import {
   AlertIcon,
   CheckIcon,

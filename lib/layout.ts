@@ -1,4 +1,4 @@
-import { Graph } from "./graph";
+import { type Graph } from "./graph";
 
 /**
  * A small force-directed layout: every node pushes every other away, edges pull

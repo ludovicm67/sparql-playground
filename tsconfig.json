@@ -12,6 +12,9 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
+    // Required by the unit tests: Node strips types rather than compiling, so
+    // a type imported without `type` becomes a missing runtime export.
+    "verbatimModuleSyntax": true,
     "jsx": "react-jsx",
     "incremental": true
   },

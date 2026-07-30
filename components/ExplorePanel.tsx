@@ -1,10 +1,10 @@
 import { useCallback } from "react";
 import {
-  ClassEntry,
-  InstanceEntry,
+  type ClassEntry,
+  type InstanceEntry,
   localName,
-  NodeKind,
-  TermRef,
+  type NodeKind,
+  type TermRef,
 } from "../lib/explore";
 import { nearBottom, usePagedQuery } from "../lib/usePagedQuery";
 import {

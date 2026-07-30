@@ -3,12 +3,12 @@ import {
   displayTerm,
   isReferenceable,
   localName,
-  ObjectEntry,
-  PredicateEntry,
+  type ObjectEntry,
+  type PredicateEntry,
   termKey,
-  TermRef,
+  type TermRef,
 } from "../lib/explore";
-import { GraphNode } from "../lib/graph";
+import { type GraphNode } from "../lib/graph";
 import { nearBottom, usePagedQuery } from "../lib/usePagedQuery";
 import {
   ChevronUpIcon,

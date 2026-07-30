@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useEffect, useState } from "react";
+import { createContext, type ReactNode, useEffect, useState } from "react";
 import init, * as oxigraph from "oxigraph/web";
 import persons from "../resources/data/persons";
 import GraphMark from "./GraphMark";

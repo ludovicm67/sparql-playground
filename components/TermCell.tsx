@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import { QueryResultBindingValue } from "../lib/results";
+import { type QueryResultBindingValue } from "../lib/results";
 
 const KNOWN_PREFIXES: Record<string, string> = {
   "http://www.w3.org/2001/XMLSchema#": "xsd",

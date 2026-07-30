@@ -1,5 +1,5 @@
-import { isSafeIri, localName, TermRef } from "./explore";
-import { QueryResult, QueryResultBindingValue } from "./results";
+import { isSafeIri, localName, type TermRef } from "./explore";
+import { type QueryResult, type QueryResultBindingValue } from "./results";
 import { newId, readJson, STORAGE_KEYS, writeJson } from "./storage";
 
 export const RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";

@@ -1,4 +1,5 @@
-import {
+// Type-only: nothing here needs the WebAssembly module at runtime.
+import type {
   BlankNode,
   Literal,
   NamedNode,

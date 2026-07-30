@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type * as oxigraph from "oxigraph/web";
-import { Connection } from "../lib/connections";
-import { isSafeIri, labelsQuery, localName, parseLabels, TermRef } from "../lib/explore";
+import { type Connection } from "../lib/connections";
+import { isSafeIri, labelsQuery, localName, parseLabels, type TermRef } from "../lib/explore";
 import {
   parseResource,
-  ResourceDetails,
-  ResourceProperty,
+  type ResourceDetails,
+  type ResourceProperty,
   resourceIris,
   resourceQuery,
   withLabels,

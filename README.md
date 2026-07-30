@@ -161,6 +161,40 @@ connection, its canvases, and the query in the editor.
 Navigation uses the query string (`?mode=explore`); share links use the
 fragment (`#s=…`), so the two never collide.
 
+## Tests
+
+```sh
+npm run test:unit   # node --test, no browser
+npm run test:e2e    # playwright, against the built static export
+npm test            # both
+```
+
+**Unit tests** live in [test/](test/) and use Node's own test runner. Node runs
+the TypeScript directly — there is no build step and no test framework — with
+one caveat: type stripping needs every type import marked `type`, which
+`verbatimModuleSyntax` enforces, and a ten-line resolver hook
+([test/hooks.mjs](test/hooks.mjs)) to map extensionless imports onto `.ts`.
+They cover the pure logic: IRI escaping and query building, the result parsers,
+graph and layout maths, share-link encoding, and everything that reads or
+writes browser storage.
+
+**End-to-end tests** live in [e2e/](e2e/) and drive the *real static export* —
+the artefact that actually ships — plus a mock SPARQL endpoint
+([e2e/fixtures/mock-endpoint.mjs](e2e/fixtures/mock-endpoint.mjs)) that covers
+CORS preflight, every request method, basic auth, error statuses and a
+paginating dataset. Playwright starts both servers itself, so `npm run test:e2e`
+needs nothing running beforehand — but it does need a build:
+
+```sh
+npm run build && npm run test:e2e
+```
+
+The mock's request log is shared by every worker, so specs match on their own
+endpoint path rather than assuming the last entry is theirs.
+
+CI runs lint, typecheck and unit tests in one job and the end-to-end suite in
+another; the Pages deploy waits on both and only runs on `main`.
+
 ## Start it locally
 
 ```sh

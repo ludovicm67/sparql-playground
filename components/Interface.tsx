@@ -6,9 +6,9 @@ import {
   useRef,
   useState,
 } from "react";
-import Editor, { OnMount } from "@monaco-editor/react";
+import Editor, { type OnMount } from "@monaco-editor/react";
 import { StoreContext } from "./StoreProvider";
-import { QueryResult, ResultKind, summarizeResult } from "../lib/results";
+import { type QueryResult, type ResultKind, summarizeResult } from "../lib/results";
 import { defineEditorTheme, EDITOR_THEME } from "../lib/monaco";
 import {
   attachDiagnostics,
@@ -17,22 +17,22 @@ import {
 } from "../lib/languageServer";
 import { defaultExample, examplesFor } from "../lib/examples";
 import {
-  Connection,
+  type Connection,
   emptyRemoteConnection,
   isLocal,
   loadActiveConnectionId,
   loadConnections,
   localConnection,
   LOCAL_CONNECTION_ID,
-  RemoteConnection,
+  type RemoteConnection,
   reorder,
   saveActiveConnectionId,
   saveConnections,
 } from "../lib/connections";
 import {
   addHistoryEntry,
-  History,
-  HistoryEntry,
+  type History,
+  type HistoryEntry,
   loadHistory,
   pruneHistory,
   removeHistoryEntry,
@@ -44,7 +44,7 @@ import {
   loadResourceHistory,
   pruneResourceHistory,
   removeResourceEntry,
-  ResourceHistory,
+  type ResourceHistory,
   resourceQuery,
   saveResourceHistory,
 } from "../lib/resources";
@@ -52,12 +52,12 @@ import { runQuery } from "../lib/sparql";
 import {
   applyShare,
   parseShareFragment,
-  SharedCanvas,
-  SharedNotice,
+  type SharedCanvas,
+  type SharedNotice,
 } from "../lib/share";
 import { clearStoredData } from "../lib/storage";
 import { loadDraft, saveDraft } from "../lib/drafts";
-import { DEFAULT_NAV, Mode, readNav, syncNav } from "../lib/navigation";
+import { DEFAULT_NAV, type Mode, readNav, syncNav } from "../lib/navigation";
 import ConnectionDialog from "./ConnectionDialog";
 import Explore from "./Explore";
 import ResourceView from "./ResourceView";

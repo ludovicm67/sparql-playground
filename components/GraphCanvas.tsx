@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
-import { displayTerm, localName, NodeKind, TermRef } from "../lib/explore";
-import { Graph, GraphNode } from "../lib/graph";
+import { displayTerm, localName, type NodeKind, type TermRef } from "../lib/explore";
+import { type Graph, type GraphNode } from "../lib/graph";
 import { ChipIcon, CloseIcon, CloudIcon } from "./icons";
 
 export type Viewport = { x: number; y: number; scale: number };

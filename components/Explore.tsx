@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type * as oxigraph from "oxigraph/web";
 import {
-  CanvasDoc,
+  type CanvasDoc,
   loadCanvases,
   newCanvas,
   nextCanvasName,
   saveCanvases,
 } from "../lib/canvas";
-import { Connection } from "../lib/connections";
+import { type Connection } from "../lib/connections";
 import {
   CLASS_PAGE_SIZE,
-  ClassEntry,
+  type ClassEntry,
   classesQuery,
   describeQuery,
   directLinksQuery,
@@ -18,7 +18,7 @@ import {
   instancesQuery,
   labelsQuery,
   localName,
-  NodeKind,
+  type NodeKind,
   objectsQuery,
   PAGE_SIZE,
   parseClasses,
@@ -29,7 +29,7 @@ import {
   parsePredicates,
   predicatesQuery,
   schemaLinksQuery,
-  TermRef,
+  type TermRef,
 } from "../lib/explore";
 import {
   addEdges,
@@ -37,17 +37,17 @@ import {
   emptyGraph,
   findNode,
   freePosition,
-  Graph,
+  type Graph,
   moveNode,
   nodeId,
   removeNode,
 } from "../lib/graph";
 import { fitViewport, forceLayout } from "../lib/layout";
-import { SharedCanvas } from "../lib/share";
+import { type SharedCanvas } from "../lib/share";
 import { runQuery } from "../lib/sparql";
 import CanvasTabs from "./CanvasTabs";
 import ExplorePanel from "./ExplorePanel";
-import GraphCanvas, { Viewport } from "./GraphCanvas";
+import GraphCanvas, { type Viewport } from "./GraphCanvas";
 import NodeInspector from "./NodeInspector";
 import { LayoutIcon, ShareIcon, TrashIcon } from "./icons";
 

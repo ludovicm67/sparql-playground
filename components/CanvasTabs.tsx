@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { CanvasDoc } from "../lib/canvas";
+import { type CanvasDoc } from "../lib/canvas";
 import { CloseIcon, PlusIcon } from "./icons";
 
 type Props = {
