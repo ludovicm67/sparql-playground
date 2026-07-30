@@ -13,6 +13,8 @@ type Props = {
   query: string;
   /** Present when sharing from Explore rather than the query editor. */
   canvas?: SharedCanvas & { nodeCount: number };
+  /** IRI to open in Resource mode on the other side. */
+  resource?: string;
   onClose: () => void;
 };
 
@@ -22,7 +24,13 @@ type Props = {
  */
 const LONG_URL = 8000;
 
-const ShareDialog: React.FC<Props> = ({ connection, query, canvas, onClose }) => {
+const ShareDialog: React.FC<Props> = ({
+  connection,
+  query,
+  canvas,
+  resource,
+  onClose,
+}) => {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const secrets = hasSecrets(connection);
 
@@ -46,10 +54,11 @@ const ShareDialog: React.FC<Props> = ({ connection, query, canvas, onClose }) =>
           includeSecrets,
           canvas
             ? { name: canvas.name, graph: canvas.graph, viewport: canvas.viewport }
-            : undefined
+            : undefined,
+          resource
         )
       ),
-    [connection, query, includeSecrets, canvas]
+    [connection, query, includeSecrets, canvas, resource]
   );
 
   const copy = async () => {
@@ -87,7 +96,13 @@ const ShareDialog: React.FC<Props> = ({ connection, query, canvas, onClose }) =>
     <dialog className="dialog" ref={dialogRef} onCancel={onClose} onClose={onClose}>
       <div className="dialog-form">
         <header className="dialog-header">
-          <h2>{canvas ? `Share “${canvas.name}”` : "Share this query"}</h2>
+          <h2>
+            {canvas
+              ? `Share “${canvas.name}”`
+              : resource
+                ? "Share this resource"
+                : "Share this query"}
+          </h2>
           <button className="icon-btn" type="button" onClick={onClose} aria-label="Close">
             <CloseIcon />
           </button>
@@ -100,7 +115,9 @@ const ShareDialog: React.FC<Props> = ({ connection, query, canvas, onClose }) =>
               ? `the canvas (${canvas.nodeCount} ${
                   canvas.nodeCount === 1 ? "node" : "nodes"
                 }, with their positions) and `
-              : "the query and "}
+              : resource
+                ? "the resource, opened straight into its page, and "
+                : "the query and "}
             {isLocal(connection) ? (
               <>
                 points at the <b>built-in store</b>, so anyone can open it.

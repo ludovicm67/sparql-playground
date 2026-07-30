@@ -5,6 +5,7 @@ import TermCell from "./TermCell";
 
 type Props = {
   results: QueryResult;
+  onOpenResource?: (iri: string) => void;
 };
 
 const EmptyResult = () => (
@@ -25,7 +26,7 @@ const EmptyResult = () => (
   </div>
 );
 
-const Results: React.FC<Props> = ({ results }) => {
+const Results: React.FC<Props> = ({ results, onOpenResource }) => {
   // CONSTRUCT / DESCRIBE hand back a serialized graph rather than bindings.
   if (typeof results === "string") {
     return (
@@ -104,7 +105,11 @@ const Results: React.FC<Props> = ({ results }) => {
                   className={term ? undefined : "is-unbound"}
                   title={term ? undefined : "Unbound"}
                 >
-                  {term ? <TermCell term={term} /> : "—"}
+                  {term ? (
+                    <TermCell term={term} onOpenResource={onOpenResource} />
+                  ) : (
+                    "—"
+                  )}
                 </td>
               );
             })}

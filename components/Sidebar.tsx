@@ -4,6 +4,8 @@ import {
   HistoryEntry,
   summarizeQuery,
 } from "../lib/history";
+import { localName } from "../lib/explore";
+import { ResourceEntry } from "../lib/resources";
 import {
   ChevronDownIcon,
   ChevronUpIcon,
@@ -11,6 +13,7 @@ import {
   CloudIcon,
   HistoryIcon,
   PencilIcon,
+  ResourceIcon,
   PlusIcon,
   TrashIcon,
 } from "./icons";
@@ -19,6 +22,9 @@ type Props = {
   connections: Connection[];
   activeId: string;
   history: HistoryEntry[];
+  resourceHistory: ResourceEntry[];
+  /** Explore and Query share the query history; Resource has its own. */
+  showResources: boolean;
   /** Passed in so relative timestamps stay stable within a render pass. */
   now: number;
   onSelect: (id: string) => void;
@@ -29,6 +35,9 @@ type Props = {
   onSelectHistoryEntry: (entry: HistoryEntry) => void;
   onDeleteHistoryEntry: (entry: HistoryEntry) => void;
   onClearHistory: () => void;
+  onSelectResource: (entry: ResourceEntry) => void;
+  onDeleteResource: (entry: ResourceEntry) => void;
+  onClearResources: () => void;
   onClearStoredData: () => void;
 };
 
@@ -36,6 +45,8 @@ const Sidebar: React.FC<Props> = ({
   connections,
   activeId,
   history,
+  resourceHistory,
+  showResources,
   now,
   onSelect,
   onCreate,
@@ -45,6 +56,9 @@ const Sidebar: React.FC<Props> = ({
   onSelectHistoryEntry,
   onDeleteHistoryEntry,
   onClearHistory,
+  onSelectResource,
+  onDeleteResource,
+  onClearResources,
   onClearStoredData,
 }) => (
   <aside className="sidebar" aria-label="Connections and history">
@@ -143,59 +157,119 @@ const Sidebar: React.FC<Props> = ({
       </ul>
     </section>
 
-    <section className="sidebar-section sidebar-section--history">
-      <div className="sidebar-heading">
-        <span className="panel-title">
-          <HistoryIcon size={12} /> History
-        </span>
-        {history.length > 0 ? (
-          <button className="btn-link" type="button" onClick={onClearHistory}>
-            Clear
-          </button>
-        ) : null}
-      </div>
+    {showResources ? (
+      <section className="sidebar-section sidebar-section--history">
+        <div className="sidebar-heading">
+          <span className="panel-title">
+            <ResourceIcon size={12} /> Resources
+          </span>
+          {resourceHistory.length > 0 ? (
+            <button className="btn-link" type="button" onClick={onClearResources}>
+              Clear
+            </button>
+          ) : null}
+        </div>
 
-      {history.length === 0 ? (
-        <p className="sidebar-empty">
-          Queries you run against this connection show up here.
-        </p>
-      ) : (
-        <ul className="history-list">
-          {history.map((entry) => (
-            <li key={entry.id}>
-              <div className={`history${entry.status === "error" ? " is-error" : ""}`}>
-                <button
-                  className="history-main"
-                  type="button"
-                  onClick={() => onSelectHistoryEntry(entry)}
-                  title={`Load this query into the editor:\n\n${entry.query}`}
+        {resourceHistory.length === 0 ? (
+          <p className="sidebar-empty">
+            Resources you look up on this connection show up here.
+          </p>
+        ) : (
+          <ul className="history-list">
+            {resourceHistory.map((entry) => (
+              <li key={entry.id}>
+                <div
+                  className={`history${entry.statements === undefined ? " is-error" : ""}`}
                 >
-                  <span className="history-query">{summarizeQuery(entry.query)}</span>
-                  <span className="history-meta">
-                    {entry.status === "error"
-                      ? "failed"
-                      : entry.rows === null
-                        ? "boolean"
-                        : `${entry.rows} ${entry.rows === 1 ? "row" : "rows"}`}
-                    <span className="history-dot">·</span>
-                    {formatRelativeTime(entry.at, now)}
-                  </span>
-                </button>
-                <button
-                  className="icon-btn is-danger"
-                  type="button"
-                  onClick={() => onDeleteHistoryEntry(entry)}
-                  aria-label="Remove from history"
-                  title="Remove from history"
-                >
-                  <TrashIcon size={13} />
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+                  <button
+                    className="history-main"
+                    type="button"
+                    onClick={() => onSelectResource(entry)}
+                    title={entry.uri}
+                  >
+                    <span className="history-query">
+                      {entry.label ?? localName(entry.uri)}
+                    </span>
+                    <span className="history-meta">
+                      {entry.statements === undefined
+                        ? "failed"
+                        : `${entry.statements} ${
+                            entry.statements === 1 ? "statement" : "statements"
+                          }`}
+                      <span className="history-dot">·</span>
+                      {formatRelativeTime(entry.at, now)}
+                    </span>
+                  </button>
+                  <button
+                    className="icon-btn is-danger"
+                    type="button"
+                    onClick={() => onDeleteResource(entry)}
+                    aria-label="Remove from history"
+                    title="Remove from history"
+                  >
+                    <TrashIcon size={13} />
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    ) : (
+      <section className="sidebar-section sidebar-section--history">
+        <div className="sidebar-heading">
+          <span className="panel-title">
+            <HistoryIcon size={12} /> History
+          </span>
+          {history.length > 0 ? (
+            <button className="btn-link" type="button" onClick={onClearHistory}>
+              Clear
+            </button>
+          ) : null}
+        </div>
+
+        {history.length === 0 ? (
+          <p className="sidebar-empty">
+            Queries you run against this connection show up here.
+          </p>
+        ) : (
+          <ul className="history-list">
+            {history.map((entry) => (
+              <li key={entry.id}>
+                <div className={`history${entry.status === "error" ? " is-error" : ""}`}>
+                  <button
+                    className="history-main"
+                    type="button"
+                    onClick={() => onSelectHistoryEntry(entry)}
+                    title={`Load this query into the editor:\n\n${entry.query}`}
+                  >
+                    <span className="history-query">{summarizeQuery(entry.query)}</span>
+                    <span className="history-meta">
+                      {entry.status === "error"
+                        ? "failed"
+                        : entry.rows === null
+                          ? "boolean"
+                          : `${entry.rows} ${entry.rows === 1 ? "row" : "rows"}`}
+                      <span className="history-dot">·</span>
+                      {formatRelativeTime(entry.at, now)}
+                    </span>
+                  </button>
+                  <button
+                    className="icon-btn is-danger"
+                    type="button"
+                    onClick={() => onDeleteHistoryEntry(entry)}
+                    aria-label="Remove from history"
+                    title="Remove from history"
+                  >
+                    <TrashIcon size={13} />
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    )}
 
     <footer className="sidebar-footer">
       <button className="btn-link is-danger" type="button" onClick={onClearStoredData}>

@@ -58,7 +58,11 @@ type Props = {
   hidden?: boolean;
   /** A canvas that arrived on a shared link, adopted once on mount. */
   incomingCanvas?: SharedCanvas;
+  /** An IRI handed over from another mode, dropped onto the canvas once. */
+  pendingUri?: string;
+  onPendingUriConsumed?: () => void;
   onOpenQuery: (query: string) => void;
+  onOpenResource: (uri: string) => void;
   onShareCanvas: (canvas: SharedCanvas & { nodeCount: number }) => void;
 };
 
@@ -67,7 +71,10 @@ const Explore: React.FC<Props> = ({
   store,
   hidden,
   incomingCanvas,
+  pendingUri,
+  onPendingUriConsumed,
   onOpenQuery,
+  onOpenResource,
   onShareCanvas,
 }) => {
   // Explore is keyed by connection, so this restores that connection's canvases
@@ -154,6 +161,19 @@ const Explore: React.FC<Props> = ({
     (query: string) => runQuery(connection, query, store),
     [connection, store]
   );
+
+  // An IRI handed over from the resource page: place it, then tell the parent
+  // so it is not re-added on the next render.
+  const addTermRef = useRef<((kind: NodeKind, term: TermRef) => void) | undefined>(
+    undefined
+  );
+  useEffect(() => {
+    if (!pendingUri) {
+      return;
+    }
+    addTermRef.current?.("instance", { type: "uri", value: pendingUri });
+    onPendingUriConsumed?.();
+  }, [pendingUri, onPendingUriConsumed]);
 
   /** Fetch display labels for a page of IRIs; failure is not worth surfacing. */
   const labelsFor = useCallback(
@@ -291,6 +311,10 @@ const Explore: React.FC<Props> = ({
     [centreOfView, discoverLinks, setGraph]
   );
 
+  useEffect(() => {
+    addTermRef.current = (kind, term) => addTerm(kind, term);
+  }, [addTerm]);
+
   /**
    * Objects reached through a predicate already carry their edge, so they are
    * connected without asking the endpoint again.
@@ -375,6 +399,7 @@ const Explore: React.FC<Props> = ({
         onAddTerm={(kind, term) => addTerm(kind, term)}
         onQueryClass={(iri) => onOpenQuery(instancesOfClassQuery(iri))}
         onQueryInstance={(iri) => onOpenQuery(describeQuery(iri))}
+        onOpenResource={onOpenResource}
       />
 
       <section className="panel canvas-panel" aria-label="Graph canvas">
@@ -504,6 +529,7 @@ const Explore: React.FC<Props> = ({
                 addObjects(selected.id, predicate, terms)
               }
               onQueryNode={() => onOpenQuery(describeQuery(selected.term.value))}
+              onOpenResource={() => onOpenResource(selected.term.value)}
               onClose={() => setSelectedId(undefined)}
             />
           ) : null}

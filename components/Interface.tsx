@@ -39,6 +39,15 @@ import {
   saveHistory,
 } from "../lib/history";
 import { pruneCanvases } from "../lib/canvas";
+import {
+  addResourceEntry,
+  loadResourceHistory,
+  pruneResourceHistory,
+  removeResourceEntry,
+  ResourceHistory,
+  resourceQuery,
+  saveResourceHistory,
+} from "../lib/resources";
 import { runQuery } from "../lib/sparql";
 import {
   applyShare,
@@ -49,6 +58,7 @@ import {
 import { clearStoredData } from "../lib/storage";
 import ConnectionDialog from "./ConnectionDialog";
 import Explore from "./Explore";
+import ResourceView from "./ResourceView";
 import ShareDialog from "./ShareDialog";
 import GraphMark from "./GraphMark";
 import Results from "./Results";
@@ -58,6 +68,7 @@ import {
   CloseIcon,
   FormatIcon,
   GraphIcon,
+  ResourceIcon,
   ShareIcon,
   SidebarIcon,
   SpinnerIcon,
@@ -105,6 +116,7 @@ const bootstrap = () => {
       query: defaultExample.query,
       activeExample: defaultExample.id as string | undefined,
       canvas: undefined as SharedCanvas | undefined,
+      resource: undefined as string | undefined,
       notice: undefined as SharedNotice | undefined,
       fromLink: false,
     };
@@ -117,6 +129,7 @@ const bootstrap = () => {
     query: applied.query,
     activeExample: undefined as string | undefined,
     canvas: applied.canvas,
+    resource: applied.resource,
     notice: applied.notice,
     fromLink: true,
   };
@@ -142,12 +155,20 @@ const Interface = () => {
     (SharedCanvas & { nodeCount: number }) | undefined
   >();
   const [formatting, setFormatting] = useState(false);
-  const [mode, setMode] = useState<"query" | "explore">("query");
+  const [mode, setMode] = useState<"query" | "explore" | "resource">(
+    // A link carrying an IRI should land on its page, not the editor.
+    initial.resource ? "resource" : "query"
+  );
   // Explore is mounted on first use, then kept alive: its opening query is not
   // worth running for someone who never leaves Query mode, but the canvas they
   // built should survive switching back and forth.
   const [exploreOpened, setExploreOpened] = useState(false);
   const [storageGeneration, setStorageGeneration] = useState(0);
+  const [resourceHistory, setResourceHistory] =
+    useState<ResourceHistory>(loadResourceHistory);
+  const [resourceUri, setResourceUri] = useState(initial.resource ?? "");
+  const [pendingCanvasUri, setPendingCanvasUri] = useState<string | undefined>();
+  const [sharingResource, setSharingResource] = useState<string | undefined>();
   const editorRef = useRef<Parameters<OnMount>[0] | undefined>(undefined);
   const [results, setResults] = useState<QueryResult | undefined>();
   const [stats, setStats] = useState<RunStats | undefined>();
@@ -173,6 +194,7 @@ const Interface = () => {
   useEffect(() => saveConnections(connections), [connections]);
   useEffect(() => saveActiveConnectionId(activeId), [activeId]);
   useEffect(() => saveHistory(history), [history]);
+  useEffect(() => saveResourceHistory(resourceHistory), [resourceHistory]);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), RELATIVE_TIME_REFRESH_MS);
@@ -404,6 +426,7 @@ const Interface = () => {
 
     setConnections(remaining);
     setHistory((current) => pruneHistory(current, remainingIds));
+    setResourceHistory((current) => pruneResourceHistory(current, remainingIds));
     pruneCanvases(remainingIds);
 
     if (activeId === connection.id) {
@@ -414,6 +437,27 @@ const Interface = () => {
 
   // Loads the query into the editor only: picking something out of the history
   // should never fire a request on its own.
+  /** Entry point used by every other mode to hand over an IRI. */
+  const openResource = useCallback((uri: string) => {
+    setResourceUri(uri);
+    setMode("resource");
+  }, []);
+
+  const recordResource = useCallback(
+    (connectionId: string, uri: string, label?: string, statements?: number) => {
+      setResourceHistory((current) =>
+        addResourceEntry(current, connectionId, {
+          uri,
+          at: Date.now(),
+          label,
+          statements,
+        })
+      );
+      setNow(Date.now());
+    },
+    []
+  );
+
   const loadHistoryEntry = (entry: HistoryEntry) => {
     setQuery(entry.query);
     setActiveExample(undefined);
@@ -433,6 +477,8 @@ const Interface = () => {
     setConnections([localConnection()]);
     setActiveId(LOCAL_CONNECTION_ID);
     setHistory({});
+    setResourceHistory({});
+    setResourceUri("");
     // Explore owns its canvas state, so bump its key to remount it against the
     // now-empty storage; otherwise its debounced save writes the graph back.
     setStorageGeneration((generation) => generation + 1);
@@ -495,6 +541,15 @@ const Interface = () => {
             <GraphIcon size={13} />
             Explore
           </button>
+          <button
+            className="segment"
+            type="button"
+            aria-pressed={mode === "resource"}
+            onClick={() => setMode("resource")}
+          >
+            <ResourceIcon size={13} />
+            Resource
+          </button>
         </div>
 
         <div className="header-meta">
@@ -544,8 +599,13 @@ const Interface = () => {
               </>
             ) : (
               <>
-                Opened a shared {notice.canvasName ? "canvas" : "query"} against your
-                existing <b>{notice.connectionName}</b> connection.
+                Opened a shared{" "}
+                {notice.canvasName
+                  ? "canvas"
+                  : notice.resource
+                    ? "resource"
+                    : "query"}{" "}
+                against your existing <b>{notice.connectionName}</b> connection.
               </>
             )}
             {notice.canvasName ? (
@@ -553,6 +613,12 @@ const Interface = () => {
                 {" "}
                 The canvas <b>{notice.canvasName}</b> is waiting in{" "}
                 <b>Explore</b>.
+              </>
+            ) : null}
+            {notice.resource ? (
+              <>
+                {" "}
+                Showing <b>{notice.resource}</b>.
               </>
             ) : null}
           </p>
@@ -582,7 +648,21 @@ const Interface = () => {
             connections={connections}
             activeId={activeConnection.id}
             history={connectionHistory}
+            resourceHistory={resourceHistory[activeConnection.id] ?? []}
+            showResources={mode === "resource"}
             now={now}
+            onSelectResource={(entry) => setResourceUri(entry.uri)}
+            onDeleteResource={(entry) =>
+              setResourceHistory((current) =>
+                removeResourceEntry(current, activeConnection.id, entry.id)
+              )
+            }
+            onClearResources={() =>
+              setResourceHistory((current) => ({
+                ...current,
+                [activeConnection.id]: [],
+              }))
+            }
             onSelect={selectConnection}
             onCreate={() => {
               setCreating(true);
@@ -618,6 +698,9 @@ const Interface = () => {
             store={store}
             hidden={mode !== "explore"}
             incomingCanvas={initial.canvas}
+            pendingUri={pendingCanvasUri}
+            onPendingUriConsumed={() => setPendingCanvasUri(undefined)}
+            onOpenResource={openResource}
             onOpenQuery={(text) => {
               setQuery(text);
               setActiveExample(undefined);
@@ -627,6 +710,35 @@ const Interface = () => {
             onShareCanvas={setSharingCanvas}
           />
         ) : null}
+
+        <ResourceView
+          key={`${activeConnection.id}:${resourceUri}`}
+          connection={activeConnection}
+          store={store}
+          hidden={mode !== "resource"}
+          uri={resourceUri}
+          onUriChange={setResourceUri}
+          onLoaded={(uri, details) =>
+            recordResource(
+              activeConnection.id,
+              uri,
+              details?.label,
+              details?.statements
+            )
+          }
+          onOpenQuery={(text) => {
+            setQuery(text);
+            setActiveExample(undefined);
+            clearResults();
+            setMode("query");
+          }}
+          onAddToCanvas={(uri) => {
+            setPendingCanvasUri(uri);
+            setExploreOpened(true);
+            setMode("explore");
+          }}
+          onShare={() => setSharingResource(resourceUri)}
+        />
 
         <main className="workspace" hidden={mode !== "query"}>
           <section className="panel" aria-label="Query">
@@ -782,21 +894,23 @@ const Interface = () => {
                   </p>
                 </div>
               ) : (
-                <Results results={results} />
+                <Results results={results} onOpenResource={openResource} />
               )}
             </div>
           </section>
         </main>
       </div>
 
-      {sharing || sharingCanvas ? (
+      {sharing || sharingCanvas || sharingResource ? (
         <ShareDialog
           connection={activeConnection}
-          query={query}
+          query={sharingResource ? resourceQuery(sharingResource) : query}
           canvas={sharingCanvas}
+          resource={sharingResource}
           onClose={() => {
             setSharing(false);
             setSharingCanvas(undefined);
+            setSharingResource(undefined);
           }}
         />
       ) : null}

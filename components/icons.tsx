@@ -89,6 +89,13 @@ export const SidebarIcon = ({ size = 17 }: IconProps) => (
   </svg>
 );
 
+export const ResourceIcon = ({ size = 15 }: IconProps) => (
+  <svg {...base(size)}>
+    <path d="M5.5 4.5h9l4 4v11h-13z" />
+    <path d="M14 4.5v4.5h4.5M8.5 13h7M8.5 16.5h4.5" />
+  </svg>
+);
+
 export const LayoutIcon = ({ size = 15 }: IconProps) => (
   <svg {...base(size)}>
     <circle cx="12" cy="5.5" r="2.4" />

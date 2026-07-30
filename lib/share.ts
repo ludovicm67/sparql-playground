@@ -13,6 +13,7 @@ import {
   REQUEST_METHODS,
   RequestMethod,
 } from "./connections";
+import { isSafeIri } from "./explore";
 import { Graph } from "./graph";
 import { newId } from "./storage";
 
@@ -51,6 +52,8 @@ export type SharePayload = {
   connection: SharedConnection;
   /** Present when a canvas was shared instead of (or as well as) a query. */
   canvas?: SharedCanvas;
+  /** Present when a resource page was shared. */
+  resource?: string;
 };
 
 export const SHARE_PARAM = "s";
@@ -83,10 +86,16 @@ export const buildSharePayload = (
   connection: Connection,
   query: string,
   includeSecrets: boolean,
-  canvas?: SharedCanvas
+  canvas?: SharedCanvas,
+  resource?: string
 ): SharePayload => {
+  const extras = {
+    ...(canvas ? { canvas } : {}),
+    ...(resource ? { resource } : {}),
+  };
+
   if (isLocal(connection)) {
-    return { v: 1, query, connection: { kind: "local" }, ...(canvas ? { canvas } : {}) };
+    return { v: 1, query, connection: { kind: "local" }, ...extras };
   }
 
   const shared: SharedConnection = {
@@ -110,7 +119,7 @@ export const buildSharePayload = (
     shared.omitted = true;
   }
 
-  return { v: 1, query, connection: shared, ...(canvas ? { canvas } : {}) };
+  return { v: 1, query, connection: shared, ...extras };
 };
 
 export const buildShareUrl = (payload: SharePayload, base?: string) => {
@@ -165,13 +174,23 @@ export const parseShareFragment = (hash: string): SharePayload | undefined => {
       }
     : undefined;
 
+  // Validated like any other IRI from an untrusted source.
+  const resource =
+    typeof payload.resource === "string" && isSafeIri(payload.resource)
+      ? payload.resource
+      : undefined;
+  const extras = {
+    ...(canvas ? { canvas } : {}),
+    ...(resource ? { resource } : {}),
+  };
+
   const connection = payload.connection as Record<string, unknown> | undefined;
   if (connection?.kind === "local") {
     return {
       v: 1,
       query: payload.query,
       connection: { kind: "local" },
-      ...(canvas ? { canvas } : {}),
+      ...extras,
     };
   }
 
@@ -217,7 +236,7 @@ export const parseShareFragment = (hash: string): SharePayload | undefined => {
       ...(auth ? { auth } : {}),
       ...(connection.omitted === true ? { omitted: true as const } : {}),
     },
-    ...(canvas ? { canvas } : {}),
+    ...extras,
   };
 };
 
@@ -240,6 +259,8 @@ export type AppliedShare = {
   query: string;
   /** Handed to Explore, which adopts it as a new canvas for that connection. */
   canvas?: SharedCanvas;
+  /** Handed to the resource view, which fetches it on arrival. */
+  resource?: string;
   notice?: SharedNotice;
 };
 
@@ -252,6 +273,8 @@ export type SharedNotice = {
   needsCredentials: boolean;
   /** Name of the canvas the link carried, if any. */
   canvasName?: string;
+  /** IRI the link asked to dereference, if any. */
+  resource?: string;
 };
 
 /**
@@ -269,14 +292,17 @@ export const applyShare = (
       activeId: local?.id ?? LOCAL_CONNECTION_ID,
       query: payload.query,
       canvas: payload.canvas,
-      notice: payload.canvas
-        ? {
-            connectionName: local?.name ?? "the built-in store",
-            created: false,
-            needsCredentials: false,
-            canvasName: payload.canvas.name,
-          }
-        : undefined,
+      resource: payload.resource,
+      notice:
+        payload.canvas || payload.resource
+          ? {
+              connectionName: local?.name ?? "the built-in store",
+              created: false,
+              needsCredentials: false,
+              canvasName: payload.canvas?.name,
+              resource: payload.resource,
+            }
+          : undefined,
     };
   }
 
@@ -294,12 +320,14 @@ export const applyShare = (
       activeId: existing.id,
       query: payload.query,
       canvas: payload.canvas,
+      resource: payload.resource,
       notice: {
         connectionName: existing.name,
         endpoint: existing.endpoint,
         created: false,
         needsCredentials: false,
         canvasName: payload.canvas?.name,
+        resource: payload.resource,
       },
     };
   }
@@ -321,12 +349,14 @@ export const applyShare = (
     activeId: created.id,
     query: payload.query,
     canvas: payload.canvas,
+    resource: payload.resource,
     notice: {
       connectionName: created.name,
       endpoint: created.endpoint,
       created: true,
       needsCredentials: shared.omitted === true,
       canvasName: payload.canvas?.name,
+      resource: payload.resource,
     },
   };
 };

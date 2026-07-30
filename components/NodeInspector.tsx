@@ -17,6 +17,7 @@ import {
   CloudIcon,
   PlusIcon,
   QueryIcon,
+  ResourceIcon,
 } from "./icons";
 
 type Props = {
@@ -26,6 +27,7 @@ type Props = {
   loadObjects: (predicate: string, offset: number) => Promise<ObjectEntry[]>;
   onAddObjects: (predicate: string, terms: TermRef[]) => void;
   onQueryNode: () => void;
+  onOpenResource: () => void;
   onClose: () => void;
 };
 
@@ -206,6 +208,7 @@ const NodeInspector: React.FC<Props> = ({
   loadObjects,
   onAddObjects,
   onQueryNode,
+  onOpenResource,
   onClose,
 }) => {
   const [predicate, setPredicate] = useState<PredicateEntry | undefined>();
@@ -233,15 +236,26 @@ const NodeInspector: React.FC<Props> = ({
 
         <div className="panel-header-actions">
           {node.term.type === "uri" ? (
-            <button
-              className="icon-btn"
-              type="button"
-              onClick={onQueryNode}
-              aria-label="Open as a query"
-              title="Open as a query"
-            >
-              <QueryIcon size={13} />
-            </button>
+            <>
+              <button
+                className="icon-btn"
+                type="button"
+                onClick={onOpenResource}
+                aria-label="Open as a resource"
+                title="Open as a resource"
+              >
+                <ResourceIcon size={13} />
+              </button>
+              <button
+                className="icon-btn"
+                type="button"
+                onClick={onQueryNode}
+                aria-label="Open as a query"
+                title="Open as a query"
+              >
+                <QueryIcon size={13} />
+              </button>
+            </>
           ) : null}
           <button
             className="icon-btn"

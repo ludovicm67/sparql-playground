@@ -33,6 +33,25 @@ says so explicitly when a request fails that way.
 
 [Oxigraph]: https://github.com/oxigraph/oxigraph
 
+## Resource mode
+
+Paste an IRI, press **Dereference**, and get a page for it: its label and types,
+every statement where it is the subject grouped by predicate, and — under
+**Referenced by** — every statement where it is the object. Values that are IRIs
+are links, so you can walk the graph one resource at a time.
+
+You do not have to type IRIs by hand. Any IRI in a query result is clickable,
+and the Explore panel and canvas nodes both have a button to open the resource
+they refer to. From the resource page you can go the other way: open the query
+behind it, drop it onto the Explore canvas, or share it.
+
+Everything is one query — the same one **open as a query** hands to the editor,
+so what you see is exactly what was asked. It is bounded at 500 statements and
+says so when a resource is bigger than that; open the query to raise the limit.
+
+Looked-up resources are kept in this browser, per connection, and listed in the
+sidebar.
+
 ## Explore mode
 
 The **Explore** tab swaps the editor for a browser and a canvas, against the

@@ -67,18 +67,39 @@ const shortenDatatype = (iri: string) => {
 
 type Props = {
   term: QueryResultBindingValue;
+  /** When given, IRIs become buttons that open the resource page. */
+  onOpenResource?: (iri: string) => void;
 };
 
 /** Renders one solution binding, styled by term type. */
-const TermCell: React.FC<Props> = ({ term }) => {
+const TermCell: React.FC<Props> = ({ term, onOpenResource }) => {
   if (term.type === "uri") {
     const { namespace, local } = splitIri(term.value);
 
-    return (
-      <span className="term term-uri" title={term.value}>
+    const content = (
+      <>
         <span className="term-ns">{withBreakPoints(namespace)}</span>
         <wbr />
         <span className="term-local">{local}</span>
+      </>
+    );
+
+    if (onOpenResource) {
+      return (
+        <button
+          className="term term-uri term-link"
+          type="button"
+          title={`Open ${term.value}`}
+          onClick={() => onOpenResource(term.value)}
+        >
+          {content}
+        </button>
+      );
+    }
+
+    return (
+      <span className="term term-uri" title={term.value}>
+        {content}
       </span>
     );
   }

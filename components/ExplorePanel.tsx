@@ -7,7 +7,14 @@ import {
   TermRef,
 } from "../lib/explore";
 import { nearBottom, usePagedQuery } from "../lib/usePagedQuery";
-import { ChevronUpIcon, ChipIcon, CloudIcon, PlusIcon, QueryIcon } from "./icons";
+import {
+  ChevronUpIcon,
+  ChipIcon,
+  CloudIcon,
+  PlusIcon,
+  QueryIcon,
+  ResourceIcon,
+} from "./icons";
 
 type Row = {
   key: string;
@@ -17,6 +24,7 @@ type Row = {
   secondary?: string;
   badge?: string;
   onOpen?: () => void;
+  onDereference?: () => void;
 };
 
 const setDragPayload = (event: React.DragEvent, row: Row) => {
@@ -96,6 +104,17 @@ const RowList: React.FC<ListProps> = ({
                 >
                   <PlusIcon size={13} />
                 </button>
+                {row.onDereference ? (
+                  <button
+                    className="icon-btn"
+                    type="button"
+                    onClick={row.onDereference}
+                    aria-label={`Open ${row.primary} as a resource`}
+                    title="Open as a resource"
+                  >
+                    <ResourceIcon size={13} />
+                  </button>
+                ) : null}
                 {row.onOpen ? (
                   <button
                     className="icon-btn"
@@ -133,6 +152,7 @@ type Props = {
   onAddTerm: (kind: NodeKind, term: TermRef) => void;
   onQueryClass: (classIri: string) => void;
   onQueryInstance: (iri: string) => void;
+  onOpenResource: (iri: string) => void;
 };
 
 const ExplorePanel: React.FC<Props> = ({
@@ -145,6 +165,7 @@ const ExplorePanel: React.FC<Props> = ({
   onAddTerm,
   onQueryClass,
   onQueryInstance,
+  onOpenResource,
 }) => {
   const classRows = useCallback(
     async (offset: number): Promise<Row[]> =>
@@ -156,8 +177,9 @@ const ExplorePanel: React.FC<Props> = ({
         secondary: entry.iri,
         badge: entry.count === undefined ? undefined : entry.count.toLocaleString(),
         onOpen: () => onQueryClass(entry.iri),
+        onDereference: () => onOpenResource(entry.iri),
       })),
-    [loadClasses, onQueryClass]
+    [loadClasses, onQueryClass, onOpenResource]
   );
 
   const instanceRows = useCallback(
@@ -173,9 +195,10 @@ const ExplorePanel: React.FC<Props> = ({
         primary: entry.label ?? localName(entry.iri),
         secondary: entry.iri,
         onOpen: () => onQueryInstance(entry.iri),
+        onDereference: () => onOpenResource(entry.iri),
       }));
     },
-    [loadInstances, openedClass, onQueryInstance]
+    [loadInstances, openedClass, onQueryInstance, onOpenResource]
   );
 
   return (
