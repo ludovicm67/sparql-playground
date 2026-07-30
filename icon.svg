@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="SPARQL Playground">
+  <rect width="64" height="64" rx="14" fill="#11141b"/>
+  <g stroke="#8b7cf6" stroke-width="4" stroke-linecap="round" opacity="0.55">
+    <path d="M20 27 46 21"/>
+    <path d="M20 27 37 45"/>
+  </g>
+  <circle cx="20" cy="27" r="7.5" fill="#a394ff"/>
+  <circle cx="46" cy="21" r="5.5" fill="#7cc4fa"/>
+  <circle cx="37" cy="45" r="5.5" fill="#f7c66b"/>
+</svg>
