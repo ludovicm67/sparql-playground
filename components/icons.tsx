@@ -89,6 +89,22 @@ export const SidebarIcon = ({ size = 17 }: IconProps) => (
   </svg>
 );
 
+export const ShareIcon = ({ size = 15 }: IconProps) => (
+  <svg {...base(size)}>
+    <circle cx="18" cy="5.5" r="2.6" />
+    <circle cx="6" cy="12" r="2.6" />
+    <circle cx="18" cy="18.5" r="2.6" />
+    <path d="m8.4 10.7 7.2-3.9M8.4 13.3l7.2 3.9" />
+  </svg>
+);
+
+export const CopyIcon = ({ size = 14 }: IconProps) => (
+  <svg {...base(size)}>
+    <rect x="9" y="9" width="11" height="11" rx="2" />
+    <path d="M15 6.5A2.5 2.5 0 0 0 12.5 4h-6A2.5 2.5 0 0 0 4 6.5v6A2.5 2.5 0 0 0 6.5 15" />
+  </svg>
+);
+
 export const SpinnerIcon = ({ size = 15 }: IconProps) => (
   <svg {...base(size)} className="spin">
     <path d="M12 3a9 9 0 1 0 9 9" />

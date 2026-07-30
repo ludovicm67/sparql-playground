@@ -34,12 +34,14 @@ import {
   saveHistory,
 } from "../lib/history";
 import { runQuery } from "../lib/sparql";
+import { applyShare, parseShareFragment, SharedNotice } from "../lib/share";
 import { clearStoredData } from "../lib/storage";
 import ConnectionDialog from "./ConnectionDialog";
+import ShareDialog from "./ShareDialog";
 import GraphMark from "./GraphMark";
 import Results from "./Results";
 import Sidebar from "./Sidebar";
-import { SidebarIcon, SpinnerIcon } from "./icons";
+import { AlertIcon, CloseIcon, ShareIcon, SidebarIcon, SpinnerIcon } from "./icons";
 
 const REPOSITORY = "https://github.com/ludovicm67/sparql-playground";
 const RELATIVE_TIME_REFRESH_MS = 30_000;
@@ -64,22 +66,56 @@ const hostOf = (endpoint: string) => {
   }
 };
 
+/**
+ * Resolve the starting state once, folding in a shared link when the URL
+ * carries one. Everything here is client-only: `StoreProvider` renders us
+ * after its effect resolves, so reading localStorage and the URL is safe.
+ */
+const bootstrap = () => {
+  const stored = loadConnections();
+  const shared =
+    typeof window === "undefined"
+      ? undefined
+      : parseShareFragment(window.location.hash);
+
+  if (!shared) {
+    return {
+      connections: stored,
+      activeId: loadActiveConnectionId(stored),
+      query: defaultExample.query,
+      activeExample: defaultExample.id as string | undefined,
+      notice: undefined as SharedNotice | undefined,
+      fromLink: false,
+    };
+  }
+
+  const applied = applyShare(stored, shared);
+  return {
+    connections: applied.connections,
+    activeId: applied.activeId,
+    query: applied.query,
+    activeExample: undefined as string | undefined,
+    notice: applied.notice,
+    fromLink: true,
+  };
+};
+
 const Interface = () => {
   const store = useContext(StoreContext);
 
-  // Everything below is client-only: `StoreProvider` renders us after its
-  // effect resolves, so reading localStorage during init is safe.
-  const [connections, setConnections] = useState<Connection[]>(loadConnections);
-  const [activeId, setActiveId] = useState(() =>
-    loadActiveConnectionId(loadConnections())
-  );
+  const [initial] = useState(bootstrap);
+
+  const [connections, setConnections] = useState<Connection[]>(initial.connections);
+  const [activeId, setActiveId] = useState(initial.activeId);
   const [history, setHistory] = useState<History>(loadHistory);
   const [now, setNow] = useState(() => Date.now());
 
-  const [query, setQuery] = useState<string>(defaultExample.query);
+  const [query, setQuery] = useState<string>(initial.query);
   const [activeExample, setActiveExample] = useState<string | undefined>(
-    defaultExample.id
+    initial.activeExample
   );
+  const [notice, setNotice] = useState(initial.notice);
+  const [sharing, setSharing] = useState(false);
   const [results, setResults] = useState<QueryResult | undefined>();
   const [stats, setStats] = useState<RunStats | undefined>();
   const [error, setError] = useState<string | undefined>();
@@ -109,6 +145,26 @@ const Interface = () => {
     const timer = setInterval(() => setNow(Date.now()), RELATIVE_TIME_REFRESH_MS);
     return () => clearInterval(timer);
   }, []);
+
+  // A consumed link should not be reapplied on refresh, and leaving a fragment
+  // with credentials in the address bar would be careless.
+  const consumeFragment = () =>
+    window.history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}${window.location.search}`
+    );
+
+  useEffect(() => {
+    if (initial.fromLink) {
+      consumeFragment();
+    }
+  }, [initial.fromLink]);
+
+  const connectionsRef = useRef(connections);
+  useEffect(() => {
+    connectionsRef.current = connections;
+  }, [connections]);
 
   const activeConnection = useMemo(
     () =>
@@ -210,6 +266,36 @@ const Interface = () => {
     setStats(undefined);
     setError(undefined);
   };
+
+  // Following a shared link while the app is already open only changes the
+  // fragment, which is a same-document navigation: no reload, so `bootstrap`
+  // never runs again and the link would silently do nothing.
+  useEffect(() => {
+    const onHashChange = () => {
+      const shared = parseShareFragment(window.location.hash);
+      if (!shared) {
+        return;
+      }
+
+      const applied = applyShare(connectionsRef.current, shared);
+      setConnections(applied.connections);
+      setActiveId(applied.activeId);
+      setQuery(applied.query);
+      setActiveExample(undefined);
+      setNotice(applied.notice);
+
+      pending.current?.abort();
+      setRunning(false);
+      setResults(undefined);
+      setStats(undefined);
+      setError(undefined);
+
+      consumeFragment();
+    };
+
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
 
   const selectConnection = (id: string) => {
     if (id === activeId) {
@@ -346,6 +432,44 @@ const Interface = () => {
         </div>
       </header>
 
+      {notice ? (
+        <div
+          className={`notice${notice.needsCredentials ? " is-warning" : ""}`}
+          role="status"
+        >
+          <AlertIcon size={15} />
+          <p className="notice-text">
+            {notice.created ? (
+              <>
+                Added <b>{notice.connectionName}</b>{" "}
+                <span className="notice-endpoint">({notice.endpoint})</span> from a
+                shared link.
+                {notice.needsCredentials ? (
+                  <>
+                    {" "}
+                    The link left the credentials out, so edit the connection and
+                    add them before running the query.
+                  </>
+                ) : null}
+              </>
+            ) : (
+              <>
+                Opened a shared query against your existing{" "}
+                <b>{notice.connectionName}</b> connection.
+              </>
+            )}
+          </p>
+          <button
+            className="icon-btn"
+            type="button"
+            onClick={() => setNotice(undefined)}
+            aria-label="Dismiss"
+          >
+            <CloseIcon size={14} />
+          </button>
+        </div>
+      ) : null}
+
       <div className={`app-body${sidebarOpen ? " with-sidebar" : ""}`}>
         {sidebarOpen ? (
           <button
@@ -394,15 +518,26 @@ const Interface = () => {
           <section className="panel" aria-label="Query">
             <div className="panel-header">
               <span className="panel-title">Query</span>
-              <button
-                className="btn-run"
-                onClick={() => (running ? pending.current?.abort() : execQuery())}
-                type="button"
-              >
-                {running ? <SpinnerIcon /> : null}
-                {running ? "Cancel" : "Run query"}
-                {running ? null : <kbd>{shortcut}</kbd>}
-              </button>
+              <div className="panel-header-actions">
+                <button
+                  className="icon-btn"
+                  type="button"
+                  onClick={() => setSharing(true)}
+                  aria-label="Share this query"
+                  title="Get a link to this query"
+                >
+                  <ShareIcon />
+                </button>
+                <button
+                  className="btn-run"
+                  onClick={() => (running ? pending.current?.abort() : execQuery())}
+                  type="button"
+                >
+                  {running ? <SpinnerIcon /> : null}
+                  {running ? "Cancel" : "Run query"}
+                  {running ? null : <kbd>{shortcut}</kbd>}
+                </button>
+              </div>
             </div>
 
             <div className="panel-body panel-body--flush">
@@ -521,6 +656,14 @@ const Interface = () => {
           </section>
         </main>
       </div>
+
+      {sharing ? (
+        <ShareDialog
+          connection={activeConnection}
+          query={query}
+          onClose={() => setSharing(false)}
+        />
+      ) : null}
 
       {editing ? (
         <ConnectionDialog

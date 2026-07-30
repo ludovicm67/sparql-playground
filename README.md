@@ -33,6 +33,29 @@ says so explicitly when a request fails that way.
 
 [Oxigraph]: https://github.com/oxigraph/oxigraph
 
+## Sharing a query
+
+The **Share** button in the query panel builds a link that carries the query and
+the connection it runs against. Everything is packed into the URL *fragment*
+(after the `#`), which browsers never send to a server — so the link works on a
+static host and its contents stay between you and whoever you send it to.
+
+Opening a shared link:
+
+- if the endpoint is already in the recipient's list, their own connection is
+  used, credentials and all;
+- otherwise the connection is added to their list and selected.
+
+When the connection has custom headers or basic auth, sharing asks whether to
+include them. It does **not** by default: the link then carries only the
+endpoint, and the recipient has to fill in the credentials themselves before the
+query will run. The app tells them so when they open it.
+
+> [!WARNING]
+> Choosing to include credentials puts them in the link in plain sight
+> (base64 is encoding, not encryption). Anyone with the link can query that
+> endpoint as you, and it will persist in chat logs, mail and browser history.
+
 ## Start it locally
 
 ```sh
@@ -54,3 +77,7 @@ npm run build
 ```
 
 And it would be available in the `out` directory.
+
+## License
+
+Licensed under the [Apache License, Version 2.0](LICENSE).
