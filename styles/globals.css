@@ -2139,3 +2139,107 @@ a {
 .term-link:hover .term-local {
   text-decoration: underline;
 }
+
+/* --------------------------------------------------------------- 404 page */
+
+.notfound {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 100dvh;
+  padding: 32px 24px;
+  text-align: center;
+}
+
+.notfound-mark {
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.notfound-code {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  color: var(--text-faint);
+}
+
+.notfound-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.notfound-text {
+  margin: 0;
+  max-width: 46ch;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.notfound-text code {
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--elevated);
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+
+.notfound-action {
+  margin-top: 14px;
+  text-decoration: none;
+}
+
+.sidebar-build {
+  margin: 8px 0 0;
+  font-size: 11px;
+}
+
+.sidebar-build a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--mono);
+  color: #4a5266;
+  transition: color 0.15s;
+}
+
+.sidebar-build a:hover {
+  color: var(--text-muted);
+}
+
+.sidebar-build-dirty {
+  color: #d9b382;
+}
+
+.sidebar-credit {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: #55607a;
+}
+
+.sidebar-credit a {
+  color: var(--text-faint);
+  border-bottom: 1px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.sidebar-credit a:hover {
+  color: var(--accent-bright);
+  border-bottom-color: var(--accent-line);
+}
+
+.sidebar-heart {
+  color: #e0687f;
+}
+
+.sidebar-build-label {
+  margin-right: 6px;
+  font-family: var(--sans);
+  color: #4a5266;
+}

@@ -56,6 +56,8 @@ import {
   SharedNotice,
 } from "../lib/share";
 import { clearStoredData } from "../lib/storage";
+import { loadDraft, saveDraft } from "../lib/drafts";
+import { DEFAULT_NAV, Mode, readNav, syncNav } from "../lib/navigation";
 import ConnectionDialog from "./ConnectionDialog";
 import Explore from "./Explore";
 import ResourceView from "./ResourceView";
@@ -109,14 +111,20 @@ const bootstrap = () => {
       ? undefined
       : parseShareFragment(window.location.hash);
 
+  // Where the address bar says we were, and what was in the editor.
+  const nav =
+    typeof window === "undefined" ? DEFAULT_NAV : readNav(window.location.search);
+  const draft = loadDraft();
+
   if (!shared) {
     return {
       connections: stored,
       activeId: loadActiveConnectionId(stored),
-      query: defaultExample.query,
-      activeExample: defaultExample.id as string | undefined,
+      query: draft ?? defaultExample.query,
+      activeExample: (draft ? undefined : defaultExample.id) as string | undefined,
       canvas: undefined as SharedCanvas | undefined,
-      resource: undefined as string | undefined,
+      resource: nav.resource || undefined,
+      mode: nav.mode as Mode,
       notice: undefined as SharedNotice | undefined,
       fromLink: false,
     };
@@ -130,6 +138,12 @@ const bootstrap = () => {
     activeExample: undefined as string | undefined,
     canvas: applied.canvas,
     resource: applied.resource,
+    // A share link wins over the address bar: it is the more explicit intent.
+    mode: (applied.resource
+      ? "resource"
+      : applied.canvas
+        ? "explore"
+        : "query") as Mode,
     notice: applied.notice,
     fromLink: true,
   };
@@ -155,14 +169,11 @@ const Interface = () => {
     (SharedCanvas & { nodeCount: number }) | undefined
   >();
   const [formatting, setFormatting] = useState(false);
-  const [mode, setMode] = useState<"query" | "explore" | "resource">(
-    // A link carrying an IRI should land on its page, not the editor.
-    initial.resource ? "resource" : "query"
-  );
+  const [mode, setMode] = useState<Mode>(initial.mode);
   // Explore is mounted on first use, then kept alive: its opening query is not
   // worth running for someone who never leaves Query mode, but the canvas they
   // built should survive switching back and forth.
-  const [exploreOpened, setExploreOpened] = useState(false);
+  const [exploreOpened, setExploreOpened] = useState(initial.mode === "explore");
   const [storageGeneration, setStorageGeneration] = useState(0);
   const [resourceHistory, setResourceHistory] =
     useState<ResourceHistory>(loadResourceHistory);
@@ -215,6 +226,16 @@ const Interface = () => {
       consumeFragment();
     }
   }, [initial.fromLink]);
+
+  // Reflect where we are, so a refresh lands in the same place.
+  useEffect(() => {
+    syncNav({ mode, resource: resourceUri });
+  }, [mode, resourceUri]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => saveDraft(query), 400);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   const connectionsRef = useRef(connections);
   useEffect(() => {

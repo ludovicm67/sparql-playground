@@ -13,7 +13,10 @@ const Home: NextPage = () => {
           content="Write and run SPARQL queries straight from your browser, against an Oxigraph triple store running locally on WebAssembly."
         />
         <meta name="theme-color" content="#0a0c11" />
-        <link rel="icon" href="/favicon.ico" />
+        {/* SVG first for browsers that take it, .ico as the fallback. */}
+        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+        <link rel="alternate icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </Head>
 
       <StoreProvider>

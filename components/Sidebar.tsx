@@ -7,9 +7,17 @@ import {
 import { localName } from "../lib/explore";
 import { ResourceEntry } from "../lib/resources";
 import {
+  AUTHOR_URL,
+  COMMIT_DIRTY,
+  COMMIT_SHA,
+  COMMIT_URL,
+  SHORT_SHA,
+} from "../lib/build";
+import {
   ChevronDownIcon,
   ChevronUpIcon,
   ChipIcon,
+  CommitIcon,
   CloudIcon,
   HistoryIcon,
   PencilIcon,
@@ -278,6 +286,35 @@ const Sidebar: React.FC<Props> = ({
       <p className="sidebar-note">
         Connections and history live in this browser only.
       </p>
+
+      <p className="sidebar-credit">
+        Made with{" "}
+        <span className="sidebar-heart" role="img" aria-label="love">
+          ♥
+        </span>{" "}
+        by{" "}
+        <a href={AUTHOR_URL} target="_blank" rel="noreferrer">
+          Ludovic Muller
+        </a>
+      </p>
+
+      {SHORT_SHA ? (
+        <p className="sidebar-build">
+          <span className="sidebar-build-label">Version</span>
+          <a
+            href={COMMIT_URL}
+            target="_blank"
+            rel="noreferrer"
+            title={`Built from commit ${COMMIT_SHA}${
+              COMMIT_DIRTY ? " with uncommitted changes" : ""
+            }`}
+          >
+            <CommitIcon size={11} />
+            {SHORT_SHA}
+            {COMMIT_DIRTY ? <span className="sidebar-build-dirty">+</span> : null}
+          </a>
+        </p>
+      ) : null}
     </footer>
   </aside>
 );

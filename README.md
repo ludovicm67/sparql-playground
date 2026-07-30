@@ -151,6 +151,16 @@ query will run. The app tells them so when they open it.
 > (base64 is encoding, not encryption). Anyone with the link can query that
 > endpoint as you, and it will persist in chat logs, mail and browser history.
 
+## Where you left off
+
+The address bar tracks the mode you are in and, in Resource mode, the IRI —
+so a refresh (or a bookmark) puts you back in the same place. Everything else
+that makes up "where you were" is already kept in this browser: the active
+connection, its canvases, and the query in the editor.
+
+Navigation uses the query string (`?mode=explore`); share links use the
+fragment (`#s=…`), so the two never collide.
+
 ## Start it locally
 
 ```sh
@@ -176,3 +186,5 @@ And it would be available in the `out` directory.
 ## License
 
 Licensed under the [Apache License, Version 2.0](LICENSE).
+
+Made with ♥ by [Ludovic Muller](https://ludovic-muller.fr/).

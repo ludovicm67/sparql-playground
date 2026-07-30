@@ -89,6 +89,13 @@ export const SidebarIcon = ({ size = 17 }: IconProps) => (
   </svg>
 );
 
+export const CommitIcon = ({ size = 12 }: IconProps) => (
+  <svg {...base(size)}>
+    <circle cx="12" cy="12" r="3.6" />
+    <path d="M12 3v5M12 16v5" />
+  </svg>
+);
+
 export const ResourceIcon = ({ size = 15 }: IconProps) => (
   <svg {...base(size)}>
     <path d="M5.5 4.5h9l4 4v11h-13z" />
