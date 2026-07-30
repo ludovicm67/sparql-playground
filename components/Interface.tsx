@@ -29,8 +29,8 @@ SELECT * WHERE {
 
       setResults(parsedResults);
       setError(undefined);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e));
       setResults("");
     }
   };

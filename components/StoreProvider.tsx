@@ -1,20 +1,9 @@
-import {
-  createContext,
-  JSXElementConstructor,
-  ReactElement,
-  useEffect,
-  useState,
-} from "react";
+import { createContext, ReactNode, useEffect, useState } from "react";
 import init, * as oxigraph from "oxigraph/web";
 import persons from "../resources/data/persons";
 
-type ReactChild =
-  | string
-  | number
-  | ReactElement<any, string | JSXElementConstructor<any>>;
-
 type Props = {
-  children?: ReactChild | ReactChild[];
+  children?: ReactNode;
 };
 
 export const StoreContext = createContext<oxigraph.Store | undefined>(
@@ -27,7 +16,7 @@ const StoreProvider: React.FC<Props> = ({ children }) => {
   useEffect(() => {
     init().then(() => {
       const store = new oxigraph.Store();
-      store.load(persons, "text/turtle", undefined, undefined);
+      store.load(persons, { format: "text/turtle" });
 
       setStore(store);
     });

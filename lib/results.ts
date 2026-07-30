@@ -1,5 +1,12 @@
-import { BlankNode, Literal, NamedNode, Quad } from "oxigraph/web";
+import {
+  BlankNode,
+  Literal,
+  NamedNode,
+  Quad,
+  Term as OxigraphTerm,
+} from "oxigraph/web";
 
+// Terms that can actually show up as a SPARQL solution binding.
 export type Term = NamedNode | Literal | BlankNode;
 
 export type QueryResultBindingValue =
@@ -50,7 +57,7 @@ export const emptyResult = (): QueryResult => {
 };
 
 export const selectResult = (
-  queryResults: Map<string, Term>[]
+  queryResults: Map<string, OxigraphTerm>[]
 ): QueryResult => {
   const vars = new Set<string>();
 
@@ -58,7 +65,7 @@ export const selectResult = (
     const keys = Array.from(line.keys());
     const res: Record<string, QueryResultBindingValue> = {};
 
-    keys.map((k) => {
+    keys.forEach((k) => {
       vars.add(k);
 
       const term = line.get(k);
@@ -81,8 +88,8 @@ export const selectResult = (
           };
           return;
 
-        case "Literal":
-          const literal: Literal = term as unknown as Literal;
+        case "Literal": {
+          const literal: Literal = term;
           const dataType = literal.datatype?.value;
           const language = literal.language || undefined;
           res[k] = {
@@ -92,6 +99,7 @@ export const selectResult = (
             "xml:lang": language,
           };
           return;
+        }
       }
     });
 
@@ -118,7 +126,14 @@ export const quadsResult = (queryResults: Quad[]): QueryResult => {
   return stringResult;
 };
 
-export const handleResults = (queryResults: any) => {
+// Matches the return type of `oxigraph.Store#query`.
+export type StoreQueryResult =
+  | boolean
+  | Map<string, OxigraphTerm>[]
+  | Quad[]
+  | string;
+
+export const handleResults = (queryResults: StoreQueryResult): QueryResult => {
   // ASK queries returns boolean value
   const isBoolean = typeof queryResults === "boolean";
   if (isBoolean) {
@@ -137,8 +152,8 @@ export const handleResults = (queryResults: any) => {
 
   const firstResult = queryResults[0];
   if (firstResult instanceof Map) {
-    return selectResult(queryResults);
+    return selectResult(queryResults as Map<string, OxigraphTerm>[]);
   } else {
-    return quadsResult(queryResults);
+    return quadsResult(queryResults as Quad[]);
   }
 };
