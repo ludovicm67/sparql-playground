@@ -1,6 +1,7 @@
 import { createContext, ReactNode, useEffect, useState } from "react";
 import init, * as oxigraph from "oxigraph/web";
 import persons from "../resources/data/persons";
+import GraphMark from "./GraphMark";
 
 type Props = {
   children?: ReactNode;
@@ -25,7 +26,10 @@ const StoreProvider: React.FC<Props> = ({ children }) => {
   return store ? (
     <StoreContext.Provider value={store}>{children}</StoreContext.Provider>
   ) : (
-    <p>Creating the store…</p>
+    <div className="boot">
+      <GraphMark size={40} className="boot-mark" />
+      <p className="boot-text">Loading Oxigraph and building the store…</p>
+    </div>
   );
 };
 
