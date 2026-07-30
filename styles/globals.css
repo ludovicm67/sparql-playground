@@ -159,6 +159,14 @@ a {
   color: var(--text-muted);
 }
 
+.pill-name {
+  display: block;
+  max-width: 30ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .header-link {
   display: inline-flex;
   align-items: center;
@@ -177,8 +185,15 @@ a {
 
 /* ------------------------------------------------------------- workspace */
 
+.app-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
 .workspace {
   flex: 1;
+  min-width: 0;
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -186,7 +201,7 @@ a {
   padding: 14px;
 }
 
-@media (max-width: 1000px) {
+@media (max-width: 1100px) {
   .workspace {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(220px, 1fr) minmax(220px, 1fr);
@@ -242,6 +257,281 @@ a {
   overflow: hidden;
 }
 
+/* --------------------------------------------------------------- sidebar */
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: 278px;
+  min-height: 0;
+  background: var(--panel-header);
+  border-right: 1px solid var(--border);
+}
+
+/* Wide screens keep the sidebar in the flow, so there is nothing to dim. */
+.sidebar-backdrop {
+  display: none;
+  border: none;
+  padding: 0;
+}
+
+@media (max-width: 760px) {
+  .sidebar {
+    position: absolute;
+    z-index: 30;
+    top: 60px;
+    bottom: 0;
+    left: 0;
+    width: min(300px, 86vw);
+  }
+
+  .sidebar-backdrop {
+    display: block;
+    position: absolute;
+    z-index: 29;
+    inset: 60px 0 0;
+    background: rgba(4, 5, 9, 0.6);
+    cursor: pointer;
+  }
+}
+
+.sidebar-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-section--history {
+  flex: 1;
+  border-bottom: none;
+  overflow: hidden;
+}
+
+.sidebar-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 4px 8px;
+}
+
+.sidebar-heading .panel-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sidebar-empty {
+  margin: 0;
+  padding: 4px 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+
+.sidebar-footer {
+  padding: 10px 14px 14px;
+  border-top: 1px solid var(--border);
+}
+
+.sidebar-note {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #55607a;
+}
+
+.connection-list,
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+.history-list {
+  min-height: 0;
+  padding-right: 2px;
+}
+
+.connection,
+.history {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.15s, border-color 0.15s;
+  /* Opaque stand-in for the row background, so the action overlay can fade
+     into it instead of showing the text underneath. */
+  --row-bg: var(--panel-header);
+}
+
+.connection:hover,
+.history:hover {
+  background: var(--elevated);
+  --row-bg: var(--elevated);
+}
+
+.connection.is-active {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  --row-bg: #262740;
+}
+
+.connection-main,
+.history-main {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  gap: 9px;
+  padding: 8px 6px 8px 9px;
+  border: none;
+  background: none;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.connection-icon {
+  display: flex;
+  align-items: center;
+  margin-top: 1px;
+  color: var(--text-faint);
+}
+
+.connection.is-active .connection-icon {
+  color: var(--accent-bright);
+}
+
+.connection-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+
+.connection-name {
+  font-size: 13px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.connection.is-active .connection-name {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.connection-detail {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: #55607a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Floated over the row so names get the full sidebar width when idle. */
+.connection-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 0 5px 0 22px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, transparent, var(--row-bg) 20px);
+  opacity: 0;
+  transition: opacity 0.15s;
+  /* The overlay spans a good part of the row, so only its buttons may take
+     clicks — otherwise the fade area swallows clicks meant for the row. */
+  pointer-events: none;
+}
+
+.connection-actions .icon-btn {
+  pointer-events: auto;
+}
+
+.connection:hover .connection-actions,
+.connection:focus-within .connection-actions {
+  opacity: 1;
+}
+
+/* Touch devices have no hover, so never hide the actions there. */
+@media (hover: none) {
+  .connection-actions {
+    opacity: 1;
+  }
+}
+
+.history-main {
+  flex-direction: column;
+  gap: 3px;
+  padding: 7px 4px 7px 9px;
+}
+
+.history-query {
+  width: 100%;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history:hover .history-query {
+  color: var(--text);
+}
+
+.history-meta {
+  display: flex;
+  gap: 5px;
+  font-size: 10.5px;
+  color: #55607a;
+}
+
+.history.is-error .history-query {
+  color: #d99;
+}
+
+.history > .icon-btn {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  box-shadow: -12px 0 10px -4px var(--row-bg);
+  background: var(--row-bg);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.history:hover > .icon-btn,
+.history:focus-within > .icon-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (hover: none) {
+  .history > .icon-btn {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
 /* ---------------------------------------------------------------- button */
 
 .btn-run {
@@ -282,6 +572,355 @@ a {
   font-size: 10.5px;
   line-height: 1.4;
   color: rgba(255, 255, 255, 0.9);
+}
+
+.btn-run:disabled,
+.btn-secondary:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  filter: none;
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--elevated);
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--border-strong, #2f3646);
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  margin-top: 2px;
+  padding: 5px 9px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-faint);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.btn-ghost:hover {
+  color: var(--text-muted);
+  border-color: var(--accent-line);
+}
+
+.btn-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-faint);
+  font-family: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.btn-link:hover {
+  color: var(--text-muted);
+}
+
+.btn-link.is-danger:hover {
+  color: var(--danger);
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 5px;
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: color 0.15s, background-color 0.15s;
+}
+
+.icon-btn:hover:not(:disabled) {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.icon-btn.is-danger:hover:not(:disabled) {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.icon-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.spin {
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation-duration: 2s;
+  }
+}
+
+/* ----------------------------------------------------------- form fields */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.field-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.field-required {
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #55607a;
+}
+
+.field-hint {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: #55607a;
+}
+
+.field-error {
+  font-size: 11.5px;
+  color: var(--danger);
+}
+
+.field-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: #d9b382;
+}
+
+.field-warning svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.field-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.field-row .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.input {
+  width: 100%;
+  padding: 8px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  transition: border-color 0.15s;
+}
+
+.input::placeholder {
+  color: #4a5266;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--accent-line);
+}
+
+.segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.segment {
+  padding: 6px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--elevated);
+  color: var(--text-faint);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background-color 0.15s;
+}
+
+.segment:hover {
+  color: var(--text-muted);
+}
+
+.segment[aria-pressed="true"] {
+  color: var(--accent-bright);
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
+/* ---------------------------------------------------------------- dialog */
+
+.dialog {
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100dvh - 64px);
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+}
+
+.dialog::backdrop {
+  background: rgba(5, 6, 10, 0.66);
+}
+
+.dialog-form {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 64px);
+}
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 12px 14px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel-header);
+}
+
+.dialog-header h2 {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 600;
+}
+
+.dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.dialog-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 13px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--panel-header);
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.probe {
+  display: flex;
+  gap: 11px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--elevated);
+}
+
+.probe svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.probe.is-ok {
+  border-color: rgba(74, 222, 128, 0.3);
+  background: rgba(74, 222, 128, 0.07);
+}
+
+.probe.is-ok svg {
+  color: var(--success);
+}
+
+.probe.is-error {
+  border-color: var(--danger-line);
+  background: var(--danger-soft);
+}
+
+.probe.is-error svg {
+  color: var(--danger);
+}
+
+.probe-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 3px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.probe-timing {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-faint);
+}
+
+.probe-message {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-muted);
 }
 
 /* -------------------------------------------------------------- examples */
@@ -363,11 +1002,12 @@ a {
   background: var(--panel-header);
   border-bottom: 1px solid var(--border);
   text-align: left;
-  font-size: 11px;
+  /* No text-transform here: these are SPARQL variable names, which are
+     case-sensitive, so ?s must never be shown as "S". */
+  font-family: var(--mono);
+  font-size: 11.5px;
   font-weight: 600;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--text-faint);
+  color: var(--text-muted);
   white-space: nowrap;
 }
 

@@ -150,4 +150,66 @@ WHERE {
   },
 ];
 
+/**
+ * The queries above only make sense against the bundled dataset. Remote
+ * endpoints get dataset-agnostic starting points instead, all of them bounded
+ * so they stay cheap on a public server.
+ */
+export const remoteExamples: Example[] = [
+  {
+    id: "remote-sample",
+    label: "Sample triples",
+    description: "A handful of statements, whatever the dataset holds",
+    query: `SELECT * WHERE {
+  ?subject ?predicate ?object .
+}
+LIMIT 20
+`,
+  },
+  {
+    id: "remote-classes",
+    label: "Classes",
+    description: "The most used classes in the dataset",
+    query: `SELECT ?class (COUNT(*) AS ?instances) WHERE {
+  ?s a ?class .
+}
+GROUP BY ?class
+ORDER BY DESC(?instances)
+LIMIT 25
+`,
+  },
+  {
+    id: "remote-predicates",
+    label: "Predicates",
+    description: "The most used predicates in the dataset",
+    query: `SELECT ?predicate (COUNT(*) AS ?uses) WHERE {
+  ?s ?predicate ?o .
+}
+GROUP BY ?predicate
+ORDER BY DESC(?uses)
+LIMIT 25
+`,
+  },
+  {
+    id: "remote-graphs",
+    label: "Named graphs",
+    description: "Which named graphs the endpoint exposes",
+    query: `SELECT DISTINCT ?graph WHERE {
+  GRAPH ?graph { ?s ?p ?o }
+}
+LIMIT 25
+`,
+  },
+  {
+    id: "remote-ask",
+    label: "ASK",
+    description: "Cheapest possible check that the endpoint answers",
+    query: `ASK {}
+`,
+  },
+];
+
 export const defaultExample = examples[0];
+
+export const examplesFor = (kind: "local" | "remote") =>
+  kind === "local" ? examples : remoteExamples;

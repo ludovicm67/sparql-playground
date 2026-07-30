@@ -157,3 +157,26 @@ export const handleResults = (queryResults: StoreQueryResult): QueryResult => {
     return quadsResult(queryResults as Quad[]);
   }
 };
+
+export type ResultKind = "table" | "boolean" | "graph";
+
+export type ResultSummary = {
+  kind: ResultKind;
+  /** `null` when the shape carries no row count, i.e. ASK. */
+  rows: number | null;
+};
+
+export const summarizeResult = (results: QueryResult): ResultSummary => {
+  if (typeof results === "string") {
+    return {
+      kind: "graph",
+      rows: results ? results.split("\n").filter(Boolean).length : 0,
+    };
+  }
+
+  if (Object.hasOwnProperty.call(results, "boolean")) {
+    return { kind: "boolean", rows: null };
+  }
+
+  return { kind: "table", rows: results.results?.bindings?.length ?? 0 };
+};

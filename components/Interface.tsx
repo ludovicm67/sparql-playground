@@ -8,49 +8,73 @@ import {
 } from "react";
 import Editor, { OnMount } from "@monaco-editor/react";
 import { StoreContext } from "./StoreProvider";
-import { handleResults, QueryResult } from "../lib/results";
+import { QueryResult, ResultKind, summarizeResult } from "../lib/results";
 import { defineEditorTheme, EDITOR_THEME } from "../lib/monaco";
-import { defaultExample, examples } from "../lib/examples";
+import { defaultExample, examplesFor } from "../lib/examples";
+import {
+  Connection,
+  emptyRemoteConnection,
+  isLocal,
+  loadActiveConnectionId,
+  loadConnections,
+  localConnection,
+  LOCAL_CONNECTION_ID,
+  RemoteConnection,
+  reorder,
+  saveActiveConnectionId,
+  saveConnections,
+} from "../lib/connections";
+import {
+  addHistoryEntry,
+  History,
+  HistoryEntry,
+  loadHistory,
+  pruneHistory,
+  removeHistoryEntry,
+  saveHistory,
+} from "../lib/history";
+import { runQuery } from "../lib/sparql";
+import { clearStoredData } from "../lib/storage";
+import ConnectionDialog from "./ConnectionDialog";
 import GraphMark from "./GraphMark";
 import Results from "./Results";
+import Sidebar from "./Sidebar";
+import { SidebarIcon, SpinnerIcon } from "./icons";
 
 const REPOSITORY = "https://github.com/ludovicm67/sparql-playground";
+const RELATIVE_TIME_REFRESH_MS = 30_000;
 
 type RunStats = {
-  /** `null` for results that have no row count, such as ASK. */
+  kind: ResultKind;
   rows: number | null;
   duration: number;
-  kind: "table" | "boolean" | "graph";
 };
 
-const KIND_LABELS: Record<RunStats["kind"], string> = {
+const KIND_LABELS: Record<ResultKind, string> = {
   table: "bindings",
   boolean: "boolean",
   graph: "graph",
 };
 
-const describe = (results: QueryResult): RunStats["kind"] => {
-  if (typeof results === "string") {
-    return "graph";
+const hostOf = (endpoint: string) => {
+  try {
+    return new URL(endpoint).host;
+  } catch {
+    return endpoint;
   }
-
-  return Object.hasOwnProperty.call(results, "boolean") ? "boolean" : "table";
-};
-
-const countRows = (results: QueryResult, kind: RunStats["kind"]) => {
-  if (kind === "boolean") {
-    return null;
-  }
-
-  if (typeof results === "string") {
-    return results ? results.split("\n").filter(Boolean).length : 0;
-  }
-
-  return results.results?.bindings?.length ?? 0;
 };
 
 const Interface = () => {
   const store = useContext(StoreContext);
+
+  // Everything below is client-only: `StoreProvider` renders us after its
+  // effect resolves, so reading localStorage during init is safe.
+  const [connections, setConnections] = useState<Connection[]>(loadConnections);
+  const [activeId, setActiveId] = useState(() =>
+    loadActiveConnectionId(loadConnections())
+  );
+  const [history, setHistory] = useState<History>(loadHistory);
+  const [now, setNow] = useState(() => Date.now());
 
   const [query, setQuery] = useState<string>(defaultExample.query);
   const [activeExample, setActiveExample] = useState<string | undefined>(
@@ -59,9 +83,16 @@ const Interface = () => {
   const [results, setResults] = useState<QueryResult | undefined>();
   const [stats, setStats] = useState<RunStats | undefined>();
   const [error, setError] = useState<string | undefined>();
+  const [running, setRunning] = useState(false);
 
-  // Safe to read here: `StoreProvider` only renders us once the store is
-  // built, which happens in an effect, so this never runs on the server.
+  const [editing, setEditing] = useState<RemoteConnection | undefined>();
+  const [creating, setCreating] = useState(false);
+  // On a narrow screen the sidebar is an overlay, so starting it open would
+  // bury the editor behind it.
+  const [sidebarOpen, setSidebarOpen] = useState(
+    () => typeof window === "undefined" || window.innerWidth > 760
+  );
+
   const shortcut = useMemo(
     () =>
       typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent)
@@ -70,29 +101,97 @@ const Interface = () => {
     []
   );
 
-  const execQuery = useCallback(() => {
-    if (!store) {
-      return;
-    }
+  useEffect(() => saveConnections(connections), [connections]);
+  useEffect(() => saveActiveConnectionId(activeId), [activeId]);
+  useEffect(() => saveHistory(history), [history]);
 
-    try {
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), RELATIVE_TIME_REFRESH_MS);
+    return () => clearInterval(timer);
+  }, []);
+
+  const activeConnection = useMemo(
+    () =>
+      connections.find((connection) => connection.id === activeId) ??
+      connections.find(isLocal) ??
+      localConnection(),
+    [connections, activeId]
+  );
+
+  const examples = examplesFor(activeConnection.kind);
+  const connectionHistory = history[activeConnection.id] ?? [];
+
+  const pending = useRef<AbortController | undefined>(undefined);
+
+  const execute = useCallback(
+    async (text: string, connection: Connection) => {
+      pending.current?.abort();
+      const controller = new AbortController();
+      pending.current = controller;
+
+      setRunning(true);
       const startedAt = performance.now();
-      const queryResults = store.query(query);
-      const parsedResults = handleResults(queryResults);
-      const duration = performance.now() - startedAt;
 
-      const kind = describe(parsedResults);
-      setResults(parsedResults);
-      setStats({ kind, rows: countRows(parsedResults, kind), duration });
-      setError(undefined);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
-      setResults(undefined);
-      setStats(undefined);
-    }
-  }, [store, query]);
+      try {
+        const parsed = await runQuery(connection, text, store, controller.signal);
+        if (controller.signal.aborted) {
+          return;
+        }
 
-  // Keep the editor's Cmd/Ctrl+Enter binding pointing at the latest closure.
+        const duration = performance.now() - startedAt;
+        const summary = summarizeResult(parsed);
+
+        setResults(parsed);
+        setStats({ ...summary, duration });
+        setError(undefined);
+        setHistory((current) =>
+          addHistoryEntry(current, connection.id, {
+            query: text,
+            at: Date.now(),
+            status: "ok",
+            rows: summary.rows,
+            duration,
+          })
+        );
+      } catch (failure) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        const duration = performance.now() - startedAt;
+        setError(failure instanceof Error ? failure.message : String(failure));
+        setResults(undefined);
+        setStats(undefined);
+        setHistory((current) =>
+          addHistoryEntry(current, connection.id, {
+            query: text,
+            at: Date.now(),
+            status: "error",
+            rows: null,
+            duration,
+          })
+        );
+      } finally {
+        // Only the run that still owns `pending` may clear the busy state: if a
+        // newer run superseded this one it is now in charge, but a user-issued
+        // cancel must not leave the panel stuck on "Running…".
+        if (pending.current === controller) {
+          pending.current = undefined;
+          setRunning(false);
+          setNow(Date.now());
+        }
+      }
+    },
+    [store]
+  );
+
+  const execQuery = useCallback(
+    () => execute(query, activeConnection),
+    [execute, query, activeConnection]
+  );
+
+  // The editor binds Cmd/Ctrl+Enter once, so route it through a ref to reach
+  // the current query and connection rather than the ones captured at mount.
   const execRef = useRef(execQuery);
   useEffect(() => {
     execRef.current = execQuery;
@@ -104,6 +203,88 @@ const Interface = () => {
     );
   }, []);
 
+  const clearResults = () => {
+    pending.current?.abort();
+    setRunning(false);
+    setResults(undefined);
+    setStats(undefined);
+    setError(undefined);
+  };
+
+  const selectConnection = (id: string) => {
+    if (id === activeId) {
+      return;
+    }
+    clearResults();
+    setActiveId(id);
+  };
+
+  const saveConnection = (connection: Connection) => {
+    setConnections((current) =>
+      current.some((candidate) => candidate.id === connection.id)
+        ? current.map((candidate) =>
+            candidate.id === connection.id ? connection : candidate
+          )
+        : [...current, connection]
+    );
+
+    if (creating) {
+      clearResults();
+      setActiveId(connection.id);
+    }
+
+    setEditing(undefined);
+    setCreating(false);
+  };
+
+  const deleteConnection = (connection: Connection) => {
+    if (
+      isLocal(connection) ||
+      !window.confirm(`Delete the connection “${connection.name}” and its history?`)
+    ) {
+      return;
+    }
+
+    const remaining = connections.filter(
+      (candidate) => candidate.id !== connection.id
+    );
+
+    setConnections(remaining);
+    setHistory((current) =>
+      pruneHistory(
+        current,
+        remaining.map((candidate) => candidate.id)
+      )
+    );
+
+    if (activeId === connection.id) {
+      clearResults();
+      setActiveId(remaining.find(isLocal)?.id ?? LOCAL_CONNECTION_ID);
+    }
+  };
+
+  const runHistoryEntry = (entry: HistoryEntry) => {
+    setQuery(entry.query);
+    setActiveExample(undefined);
+    void execute(entry.query, activeConnection);
+  };
+
+  const resetEverything = () => {
+    if (
+      !window.confirm(
+        "Remove every saved connection and all query history from this browser?"
+      )
+    ) {
+      return;
+    }
+
+    clearStoredData();
+    clearResults();
+    setConnections([localConnection()]);
+    setActiveId(LOCAL_CONNECTION_ID);
+    setHistory({});
+  };
+
   const loadExample = (id: string) => {
     const example = examples.find((candidate) => candidate.id === id);
     if (!example) {
@@ -114,24 +295,40 @@ const Interface = () => {
     setActiveExample(example.id);
   };
 
-  if (!store) {
-    return <div className="state">Missing store!</div>;
-  }
-
   return (
     <div className="app">
       <header className="app-header">
         <div className="brand">
+          <button
+            className="icon-btn"
+            type="button"
+            onClick={() => setSidebarOpen((open) => !open)}
+            aria-label={sidebarOpen ? "Hide the sidebar" : "Show the sidebar"}
+            aria-expanded={sidebarOpen}
+            title="Toggle the sidebar"
+          >
+            <SidebarIcon />
+          </button>
           <GraphMark size={24} className="brand-mark" />
           <div>
             <h1>SPARQL Playground</h1>
-            <p className="brand-sub">Oxigraph, running entirely in your browser</p>
+            <p className="brand-sub">
+              {isLocal(activeConnection)
+                ? "Oxigraph, running entirely in your browser"
+                : `Querying ${hostOf(activeConnection.endpoint)}`}
+            </p>
           </div>
         </div>
 
         <div className="header-meta">
-          <span className="pill">
-            <b>{store.size}</b> triples
+          <span className="pill" title={activeConnection.name}>
+            {isLocal(activeConnection) && store ? (
+              <>
+                <b>{store.size}</b> triples
+              </>
+            ) : (
+              <b className="pill-name">{activeConnection.name}</b>
+            )}
           </span>
           <a
             className="header-link"
@@ -148,121 +345,194 @@ const Interface = () => {
         </div>
       </header>
 
-      <main className="workspace">
-        <section className="panel" aria-label="Query">
-          <div className="panel-header">
-            <span className="panel-title">Query</span>
-            <button className="btn-run" onClick={execQuery} type="button">
-              Run query
-              <kbd>{shortcut}</kbd>
-            </button>
-          </div>
+      <div className={`app-body${sidebarOpen ? " with-sidebar" : ""}`}>
+        {sidebarOpen ? (
+          <button
+            className="sidebar-backdrop"
+            type="button"
+            aria-label="Close the sidebar"
+            onClick={() => setSidebarOpen(false)}
+          />
+        ) : null}
 
-          <div className="panel-body panel-body--flush">
-            <Editor
-              height="100%"
-              value={query}
-              defaultLanguage="sparql"
-              language="sparql"
-              theme={EDITOR_THEME}
-              beforeMount={defineEditorTheme}
-              onMount={handleEditorMount}
-              onChange={(value) => {
-                setQuery(value ?? "");
-                setActiveExample(undefined);
-              }}
-              options={{
-                scrollBeyondLastLine: false,
-                fontSize: 13.5,
-                lineHeight: 22,
-                padding: { top: 14, bottom: 14 },
-                minimap: { enabled: false },
-                overviewRulerLanes: 0,
-                scrollbar: {
-                  verticalScrollbarSize: 10,
-                  horizontalScrollbarSize: 10,
-                },
-                automaticLayout: true,
-                tabSize: 2,
-                wordWrap: "on",
-                lineNumbersMinChars: 3,
-                smoothScrolling: true,
-                fixedOverflowWidgets: true,
-              }}
-            />
-          </div>
-
-          <div className="examples">
-            <span className="examples-label">Examples</span>
-            {examples.map((example) => (
-              <button
-                key={example.id}
-                className="chip"
-                type="button"
-                title={example.description}
-                aria-pressed={activeExample === example.id}
-                onClick={() => loadExample(example.id)}
-              >
-                {example.label}
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className="panel" aria-label="Results">
-          <div className="panel-header">
-            <span className="panel-title">Results</span>
-            {stats ? (
-              <span className="panel-status">
-                <span className="badge">{KIND_LABELS[stats.kind]}</span>
-                {stats.rows !== null ? (
-                  <span>
-                    {stats.rows} {stats.rows === 1 ? "row" : "rows"}
-                  </span>
-                ) : null}
-                <span className="timing">{stats.duration.toFixed(1)} ms</span>
-              </span>
-            ) : null}
-          </div>
-
-          <div
-            className={
-              typeof results === "string"
-                ? "panel-body panel-body--flush"
-                : "panel-body"
+        {sidebarOpen ? (
+          <Sidebar
+            connections={connections}
+            activeId={activeConnection.id}
+            history={connectionHistory}
+            now={now}
+            onSelect={selectConnection}
+            onCreate={() => {
+              setCreating(true);
+              setEditing(emptyRemoteConnection());
+            }}
+            onEdit={(connection) => {
+              if (!isLocal(connection)) {
+                setCreating(false);
+                setEditing(connection);
+              }
+            }}
+            onDelete={deleteConnection}
+            onMove={(index, direction) =>
+              setConnections((current) => reorder(current, index, direction))
             }
-          >
-            {error ? (
-              <div className="error-box" role="alert">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.7" />
-                  <path
-                    d="M12 7.5v5.5M12 16.2v.6"
-                    stroke="currentColor"
-                    strokeWidth="1.7"
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <div>
-                  <p className="error-title">Query failed</p>
-                  <p className="error-message">{error}</p>
+            onRunHistoryEntry={runHistoryEntry}
+            onDeleteHistoryEntry={(entry) =>
+              setHistory((current) =>
+                removeHistoryEntry(current, activeConnection.id, entry.id)
+              )
+            }
+            onClearHistory={() =>
+              setHistory((current) => ({ ...current, [activeConnection.id]: [] }))
+            }
+            onClearStoredData={resetEverything}
+          />
+        ) : null}
+
+        <main className="workspace">
+          <section className="panel" aria-label="Query">
+            <div className="panel-header">
+              <span className="panel-title">Query</span>
+              <button
+                className="btn-run"
+                onClick={() => (running ? pending.current?.abort() : execQuery())}
+                type="button"
+              >
+                {running ? <SpinnerIcon /> : null}
+                {running ? "Cancel" : "Run query"}
+                {running ? null : <kbd>{shortcut}</kbd>}
+              </button>
+            </div>
+
+            <div className="panel-body panel-body--flush">
+              <Editor
+                height="100%"
+                value={query}
+                defaultLanguage="sparql"
+                language="sparql"
+                theme={EDITOR_THEME}
+                beforeMount={defineEditorTheme}
+                onMount={handleEditorMount}
+                onChange={(value) => {
+                  setQuery(value ?? "");
+                  setActiveExample(undefined);
+                }}
+                options={{
+                  scrollBeyondLastLine: false,
+                  fontSize: 13.5,
+                  lineHeight: 22,
+                  padding: { top: 14, bottom: 14 },
+                  minimap: { enabled: false },
+                  overviewRulerLanes: 0,
+                  scrollbar: {
+                    verticalScrollbarSize: 10,
+                    horizontalScrollbarSize: 10,
+                  },
+                  automaticLayout: true,
+                  tabSize: 2,
+                  wordWrap: "on",
+                  lineNumbersMinChars: 3,
+                  smoothScrolling: true,
+                  fixedOverflowWidgets: true,
+                }}
+              />
+            </div>
+
+            <div className="examples">
+              <span className="examples-label">Examples</span>
+              {examples.map((example) => (
+                <button
+                  key={example.id}
+                  className="chip"
+                  type="button"
+                  title={example.description}
+                  aria-pressed={activeExample === example.id}
+                  onClick={() => loadExample(example.id)}
+                >
+                  {example.label}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="panel" aria-label="Results">
+            <div className="panel-header">
+              <span className="panel-title">Results</span>
+              {stats && !running ? (
+                <span className="panel-status">
+                  <span className="badge">{KIND_LABELS[stats.kind]}</span>
+                  {stats.rows !== null ? (
+                    <span>
+                      {stats.rows} {stats.rows === 1 ? "row" : "rows"}
+                    </span>
+                  ) : null}
+                  <span className="timing">{stats.duration.toFixed(1)} ms</span>
+                </span>
+              ) : null}
+            </div>
+
+            <div
+              className={
+                typeof results === "string" && !running && !error
+                  ? "panel-body panel-body--flush"
+                  : "panel-body"
+              }
+            >
+              {running ? (
+                <div className="state">
+                  <SpinnerIcon size={26} />
+                  <p className="state-title">Running…</p>
+                  <p className="state-hint">
+                    {isLocal(activeConnection)
+                      ? "Querying the in-browser store."
+                      : `Waiting for ${hostOf(activeConnection.endpoint)}.`}
+                  </p>
                 </div>
-              </div>
-            ) : results === undefined ? (
-              <div className="state">
-                <GraphMark size={30} />
-                <p className="state-title">Nothing to show yet</p>
-                <p className="state-hint">
-                  Press <kbd>{shortcut}</kbd> or hit <b>Run query</b> to execute the
-                  query against the store.
-                </p>
-              </div>
-            ) : (
-              <Results results={results} />
-            )}
-          </div>
-        </section>
-      </main>
+              ) : error ? (
+                <div className="error-box" role="alert">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.7" />
+                    <path
+                      d="M12 7.5v5.5M12 16.2v.6"
+                      stroke="currentColor"
+                      strokeWidth="1.7"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <div>
+                    <p className="error-title">Query failed</p>
+                    <p className="error-message">{error}</p>
+                  </div>
+                </div>
+              ) : results === undefined ? (
+                <div className="state">
+                  <GraphMark size={30} />
+                  <p className="state-title">Nothing to show yet</p>
+                  <p className="state-hint">
+                    Press <kbd>{shortcut}</kbd> or hit <b>Run query</b> to execute the
+                    query against <b>{activeConnection.name}</b>.
+                  </p>
+                </div>
+              ) : (
+                <Results results={results} />
+              )}
+            </div>
+          </section>
+        </main>
+      </div>
+
+      {editing ? (
+        <ConnectionDialog
+          connection={editing}
+          isNew={creating}
+          store={store}
+          onSave={saveConnection}
+          onCancel={() => {
+            setEditing(undefined);
+            setCreating(false);
+          }}
+        />
+      ) : null}
     </div>
   );
 };
