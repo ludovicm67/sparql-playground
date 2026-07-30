@@ -3,7 +3,7 @@ const nextConfig = {
   reactStrictMode: true,
   output: 'export',
   // Replaces the deprecated `next-transpile-modules` package.
-  transpilePackages: ['oxigraph'],
+  transpilePackages: ['oxigraph', 'qlue-ls'],
 };
 
 module.exports = nextConfig;

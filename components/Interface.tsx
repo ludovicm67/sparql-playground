@@ -10,6 +10,11 @@ import Editor, { OnMount } from "@monaco-editor/react";
 import { StoreContext } from "./StoreProvider";
 import { QueryResult, ResultKind, summarizeResult } from "../lib/results";
 import { defineEditorTheme, EDITOR_THEME } from "../lib/monaco";
+import {
+  attachDiagnostics,
+  configureBackend,
+  registerSparqlLanguageFeatures,
+} from "../lib/languageServer";
 import { defaultExample, examplesFor } from "../lib/examples";
 import {
   Connection,
@@ -41,7 +46,14 @@ import ShareDialog from "./ShareDialog";
 import GraphMark from "./GraphMark";
 import Results from "./Results";
 import Sidebar from "./Sidebar";
-import { AlertIcon, CloseIcon, ShareIcon, SidebarIcon, SpinnerIcon } from "./icons";
+import {
+  AlertIcon,
+  CloseIcon,
+  FormatIcon,
+  ShareIcon,
+  SidebarIcon,
+  SpinnerIcon,
+} from "./icons";
 
 const REPOSITORY = "https://github.com/ludovicm67/sparql-playground";
 const RELATIVE_TIME_REFRESH_MS = 30_000;
@@ -116,6 +128,8 @@ const Interface = () => {
   );
   const [notice, setNotice] = useState(initial.notice);
   const [sharing, setSharing] = useState(false);
+  const [formatting, setFormatting] = useState(false);
+  const editorRef = useRef<Parameters<OnMount>[0] | undefined>(undefined);
   const [results, setResults] = useState<QueryResult | undefined>();
   const [stats, setStats] = useState<RunStats | undefined>();
   const [error, setError] = useState<string | undefined>();
@@ -176,6 +190,15 @@ const Interface = () => {
 
   const examples = examplesFor(activeConnection.kind);
   const connectionHistory = history[activeConnection.id] ?? [];
+
+  // Tell the language server which endpoint is in play, so its prefix-aware
+  // completion follows the connection the user is actually querying.
+  useEffect(() => {
+    void configureBackend(
+      activeConnection.name || activeConnection.id,
+      isLocal(activeConnection) ? "inmemory://oxigraph" : activeConnection.endpoint
+    );
+  }, [activeConnection]);
 
   const pending = useRef<AbortController | undefined>(undefined);
 
@@ -254,10 +277,33 @@ const Interface = () => {
   }, [execQuery]);
 
   const handleEditorMount: OnMount = useCallback((editor, monaco) => {
+    editorRef.current = editor;
+
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () =>
       execRef.current()
     );
+
+    // qlue-ls ships several MB of WebAssembly, so it boots in the background:
+    // the editor stays usable and gains completion once the server is up.
+    registerSparqlLanguageFeatures(monaco);
+    attachDiagnostics(monaco, editor);
   }, []);
+
+  // Formatting goes through the language server, so the very first run may have
+  // to wait for its WebAssembly to finish loading.
+  const formatQuery = async () => {
+    const editor = editorRef.current;
+    if (!editor || formatting) {
+      return;
+    }
+
+    setFormatting(true);
+    try {
+      await editor.getAction("editor.action.formatDocument")?.run();
+    } finally {
+      setFormatting(false);
+    }
+  };
 
   const clearResults = () => {
     pending.current?.abort();
@@ -522,6 +568,18 @@ const Interface = () => {
                 <button
                   className="icon-btn"
                   type="button"
+                  onClick={() => void formatQuery()}
+                  disabled={formatting}
+                  aria-label="Format this query"
+                  title={`Format the query (${
+                    shortcut.startsWith("⌘") ? "⇧ ⌥ F" : "Shift+Alt+F"
+                  })`}
+                >
+                  {formatting ? <SpinnerIcon /> : <FormatIcon />}
+                </button>
+                <button
+                  className="icon-btn"
+                  type="button"
                   onClick={() => setSharing(true)}
                   aria-label="Share this query"
                   title="Get a link to this query"
@@ -570,6 +628,12 @@ const Interface = () => {
                   lineNumbersMinChars: 3,
                   smoothScrolling: true,
                   fixedOverflowWidgets: true,
+                  // Otherwise Monaco pads the language server's suggestions
+                  // with words scraped out of the query itself.
+                  wordBasedSuggestions: "off",
+                  quickSuggestions: { other: true, comments: false, strings: false },
+                  suggestSelection: "first",
+                  tabCompletion: "on",
                 }}
               />
             </div>

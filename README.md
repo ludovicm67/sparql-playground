@@ -33,6 +33,36 @@ says so explicitly when a request fails that way.
 
 [Oxigraph]: https://github.com/oxigraph/oxigraph
 
+## Editor intelligence
+
+The editor is backed by [Qlue-ls], a SPARQL language server compiled to
+WebAssembly, so all of this runs in the browser with no language server to host:
+
+- **Completion** that follows the grammar — query forms at the start, `DISTINCT`
+  after `SELECT`, `FILTER` / `OPTIONAL` / `BIND` inside a `WHERE`, solution
+  modifiers after it. Press <kbd>Ctrl</kbd>+<kbd>Space</kbd> to invoke it.
+- **Prefixes declare themselves.** Write `foaf:name` and the matching
+  `PREFIX foaf: <http://xmlns.com/foaf/0.1/>` is inserted for you. A prefix the
+  playground does not know is left alone and flagged instead of guessed at.
+- **Diagnostics** for syntax errors, undeclared prefixes, unused declarations
+  and IRIs that could be shortened.
+- **Quick fixes** on those diagnostics (<kbd>Ctrl</kbd>+<kbd>.</kbd>), such as
+  replacing a full IRI with its prefixed form.
+- **Formatting**, via the button in the query panel or
+  <kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd>.
+
+The known prefixes are listed in `COMMON_PREFIXES` in
+[lib/languageServer.ts](lib/languageServer.ts) — add your own vocabularies
+there.
+
+The language server loads lazily and in the background: the editor is usable
+immediately and gains these features a moment later. Qlue-ls can also draw
+completions from the endpoint itself (real subjects and predicates), but that
+needs per-engine completion queries and would fire SPARQL at the endpoint as you
+type, so it is deliberately left off.
+
+[Qlue-ls]: https://github.com/IoannisNezis/qlue-ls
+
 ## Sharing a query
 
 The **Share** button in the query panel builds a link that carries the query and
