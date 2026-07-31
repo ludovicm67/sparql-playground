@@ -26,18 +26,38 @@ export const forceLayout = (
   const x = new Float64Array(count);
   const y = new Float64Array(count);
 
+  // Work in a frame centred on the incoming layout. The bounding frame below is
+  // centred on the origin, so feeding it raw canvas coordinates — which sit
+  // wherever the user dropped things — would clamp every node onto one edge and
+  // flatten the graph.
+  const centreX =
+    graph.nodes.reduce((total, node) => total + node.x, 0) / count;
+  const centreY =
+    graph.nodes.reduce((total, node) => total + node.y, 0) / count;
+
   graph.nodes.forEach((node, position) => {
     // Deterministic de-overlap: spread coincident nodes around a small circle.
     const angle = (position / count) * Math.PI * 2;
-    x[position] = node.x + Math.cos(angle) * 0.5;
-    y[position] = node.y + Math.sin(angle) * 0.5;
+    x[position] = node.x - centreX + Math.cos(angle) * 0.5;
+    y[position] = node.y - centreY + Math.sin(angle) * 0.5;
   });
 
-  const edges = graph.edges.flatMap((edge) => {
+  // One spring per connected *pair*, not per statement: several predicates
+  // between the same two nodes would otherwise multiply the attraction and
+  // collapse them onto each other. Self-links pull on nothing.
+  const pairs = new Map<string, readonly [number, number]>();
+  for (const edge of graph.edges) {
     const from = index.get(edge.from);
     const to = index.get(edge.to);
-    return from === undefined || to === undefined ? [] : [[from, to] as const];
-  });
+    if (from === undefined || to === undefined || from === to) {
+      continue;
+    }
+    const key = from < to ? `${from}:${to}` : `${to}:${from}`;
+    if (!pairs.has(key)) {
+      pairs.set(key, [from, to]);
+    }
+  }
+  const edges = Array.from(pairs.values());
 
   // Degree drives how hard a node repels: hubs need more room around them.
   const degree = new Float64Array(count);

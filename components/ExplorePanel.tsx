@@ -30,7 +30,9 @@ type Row = {
 const setDragPayload = (event: React.DragEvent, row: Row) => {
   event.dataTransfer.setData(
     "application/x-sparql-term",
-    JSON.stringify({ kind: row.kind, term: row.term })
+    // The label travels with the term so a dropped node is named, not just
+    // identified by the tail of its IRI.
+    JSON.stringify({ kind: row.kind, term: row.term, label: row.primary })
   );
   event.dataTransfer.effectAllowed = "copy";
 };
@@ -149,7 +151,7 @@ type Props = {
   loadClasses: (offset: number) => Promise<ClassEntry[]>;
   loadInstances: (classIri: string, offset: number) => Promise<InstanceEntry[]>;
   onOpenClass: (entry: ClassEntry | undefined) => void;
-  onAddTerm: (kind: NodeKind, term: TermRef) => void;
+  onAddTerm: (kind: NodeKind, term: TermRef, label?: string) => void;
   onQueryClass: (classIri: string) => void;
   onQueryInstance: (iri: string) => void;
   onOpenResource: (iri: string) => void;
@@ -236,7 +238,7 @@ const ExplorePanel: React.FC<Props> = ({
           load={instanceRows}
           pageSize={instancePageSize}
           emptyMessage="This class has no instances."
-          onAdd={(row) => onAddTerm(row.kind, row.term)}
+          onAdd={(row) => onAddTerm(row.kind, row.term, row.primary)}
         />
       ) : (
         <RowList
@@ -244,7 +246,7 @@ const ExplorePanel: React.FC<Props> = ({
           load={classRows}
           pageSize={classPageSize}
           emptyMessage="No classes found. The endpoint may use no rdf:type statements."
-          onAdd={(row) => onAddTerm(row.kind, row.term)}
+          onAdd={(row) => onAddTerm(row.kind, row.term, row.primary)}
           onSelectRow={(row) =>
             onOpenClass({
               iri: row.term.value,

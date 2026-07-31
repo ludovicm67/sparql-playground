@@ -11,10 +11,10 @@ import {
   withLabels,
 } from "../lib/resources";
 import { handleResults, summarizeResult } from "../lib/results";
-import { type Binding, literal, sparqlJson, uri } from "./helpers";
+import { bnode, type Binding, literal, sparqlJson, uri } from "./helpers";
 
 const row = (direction: string, predicate: string, value: Binding) => ({
-  direction: literal(direction),
+  rank: literal(direction === "incoming" ? "1" : "0"),
   predicate: uri(predicate),
   value,
 });
@@ -26,6 +26,27 @@ describe("resourceQuery", () => {
     assert.match(query, /<http:\/\/a\/x> \?predicate \?value/);
     assert.match(query, /\?value \?predicate <http:\/\/a\/x>/);
     assert.match(query, /LIMIT 500/);
+  });
+
+  it("ranks outgoing statements first so truncation cuts the incoming tail", () => {
+    const query = resourceQuery("http://a/x");
+
+    assert.match(query, /ORDER BY \?rank \?predicate/);
+    // Outgoing is rank 0, incoming rank 1; ordering by the direction's *name*
+    // would have put "incoming" first and starved the description.
+    const outgoing = query.indexOf("BIND(0 AS ?rank)");
+    const incoming = query.indexOf("BIND(1 AS ?rank)");
+    assert.ok(outgoing > 0 && incoming > outgoing);
+    assert.match(query.slice(outgoing, incoming), /<http:\/\/a\/x> \?predicate \?value/);
+  });
+
+  it("expands blank nodes two levels deep, and only blank nodes", () => {
+    const query = resourceQuery("http://a/x");
+
+    assert.match(query, /FILTER \(isBlank\(\?value\)\)/);
+    assert.match(query, /\?value \?nestedPredicate \?nestedValue/);
+    assert.match(query, /FILTER \(isBlank\(\?nestedValue\)\)/);
+    assert.match(query, /\?nestedValue \?deepPredicate \?deepValue/);
   });
 
   it("refuses an unsafe IRI", () => {
@@ -212,6 +233,118 @@ describe("handleResults", () => {
     assert.throws(
       () => handleResults(42 as unknown as boolean),
       /unexpected answer/
+    );
+  });
+});
+
+describe("blank node expansion", () => {
+  const address = () => bnode("b1");
+  const country = () => bnode("b2");
+
+  const details = () =>
+    parseResource(
+      "http://a/x",
+      sparqlJson(
+        ["rank", "predicate", "value", "nestedPredicate", "nestedValue"],
+        [
+          {
+            rank: literal("0"),
+            predicate: uri("http://a/address"),
+            value: address(),
+            nestedPredicate: uri("http://a/street"),
+            nestedValue: literal("2311 North Los Robles"),
+          },
+          {
+            rank: literal("0"),
+            predicate: uri("http://a/address"),
+            value: address(),
+            nestedPredicate: uri("http://a/city"),
+            nestedValue: literal("Pasadena"),
+          },
+          {
+            rank: literal("0"),
+            predicate: uri("http://a/name"),
+            value: literal("Sheldon"),
+          },
+        ]
+      )
+    );
+
+  it("hangs the blank node's statements under it", () => {
+    const address = details().outgoing.find((p) => p.predicate === "http://a/address");
+    const nested = address?.values[0].nested ?? [];
+
+    assert.equal(address?.values.length, 1, "the blank node is one value, not two");
+    assert.deepEqual(nested.map((p) => p.predicate).sort(), [
+      "http://a/city",
+      "http://a/street",
+    ]);
+    assert.equal(
+      nested.find((p) => p.predicate === "http://a/city")?.values[0].term.value,
+      "Pasadena"
+    );
+  });
+
+  it("counts the blank node once, not once per expanded row", () => {
+    // Two rows describe one address statement plus one name statement.
+    assert.equal(details().statements, 2);
+  });
+
+  it("leaves a non-blank value unexpanded", () => {
+    assert.equal(
+      details().outgoing.find((p) => p.predicate === "http://a/name")?.values[0].nested,
+      undefined
+    );
+  });
+
+  it("goes one level further for a blank node inside a blank node", () => {
+    const parsed = parseResource(
+      "http://a/x",
+      sparqlJson(
+        ["rank", "predicate", "value", "nestedPredicate", "nestedValue", "deepPredicate", "deepValue"],
+        [
+          {
+            rank: literal("0"),
+            predicate: uri("http://a/address"),
+            value: address(),
+            nestedPredicate: uri("http://a/country"),
+            nestedValue: country(),
+            deepPredicate: uri("http://a/code"),
+            deepValue: literal("US"),
+          },
+        ]
+      )
+    );
+
+    const deep = parsed.outgoing[0].values[0].nested?.[0].values[0].nested;
+    assert.equal(deep?.[0].predicate, "http://a/code");
+    assert.equal(deep?.[0].values[0].term.value, "US");
+  });
+
+  it("collects nested IRIs for labelling, and labels them", () => {
+    const parsed = parseResource(
+      "http://a/x",
+      sparqlJson(
+        ["rank", "predicate", "value", "nestedPredicate", "nestedValue"],
+        [
+          {
+            rank: literal("0"),
+            predicate: uri("http://a/address"),
+            value: bnode("b1"),
+            nestedPredicate: uri("http://a/country"),
+            nestedValue: uri("http://a/US"),
+          },
+        ]
+      )
+    );
+
+    assert.ok(resourceIris(parsed).includes("http://a/US"));
+    assert.ok(resourceIris(parsed).includes("http://a/country"));
+
+    const labelled = withLabels(parsed, new Map([["http://a/US", "United States"]]));
+    assert.equal(
+      labelled.outgoing[0].values[0].nested?.[0].values[0].label,
+      "United States"
     );
   });
 });

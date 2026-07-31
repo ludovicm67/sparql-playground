@@ -230,7 +230,7 @@ describe("canvases", () => {
 });
 
 describe("canvas sanitising", () => {
-  it("refuses unsafe IRIs, self edges and dangling edges", () => {
+  it("refuses unsafe IRIs and dangling edges, but keeps self-links", () => {
     const graph = sanitizeGraph({
       nodes: [
         { term: { type: "uri", value: "http://ok/a" }, x: 1, y: 2 },
@@ -246,7 +246,8 @@ describe("canvas sanitising", () => {
     });
 
     assert.equal(graph.nodes.length, 1);
-    assert.equal(graph.edges.length, 0);
+    assert.equal(graph.edges.length, 1);
+    assert.equal(graph.edges[0].predicate, "http://p");
   });
 
   it("recomputes node ids from their term", () => {

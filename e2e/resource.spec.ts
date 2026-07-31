@@ -130,3 +130,44 @@ test("is reachable from a canvas node", async ({ page }) => {
 
   await expect(page.locator(".resource-title")).toHaveText("sheldon-cooper");
 });
+
+test("expands a blank node inline instead of showing an opaque label", async ({
+  page,
+}) => {
+  // Sheldon's address is a blank node in the bundled dataset.
+  await page.goto("/?mode=resource&uri=urn:tbbt:sheldon-cooper");
+  await waitForApp(page);
+  await expect(page.locator(".resource-title")).toBeVisible();
+
+  const address = page
+    .locator(".resource-property", { hasText: "address" })
+    .first();
+
+  await expect(address.locator(".resource-nested")).toBeVisible();
+  await expect(address).not.toContainText("_:");
+
+  const nested = await address
+    .locator(".resource-properties--nested dt")
+    .allInnerTexts();
+  expect(nested).toEqual(
+    expect.arrayContaining(["streetAddress", "addressLocality", "postalCode"])
+  );
+  await expect(address).toContainText("Pasadena");
+});
+
+test("puts outgoing statements before incoming ones", async ({ page }) => {
+  await page.goto("/?mode=resource&uri=urn:tbbt:sheldon-cooper");
+  await waitForApp(page);
+
+  const titles = await page.locator(".resource-section-title").allInnerTexts();
+  expect(titles[0]).toContain("PROPERTIES");
+  expect(titles[1]).toContain("REFERENCED BY");
+
+  // The query must rank them too, so truncation cuts the incoming tail.
+  await page.getByRole("button", { name: "Open as a query" }).click();
+  const query = await editorValue(page);
+  expect(query.indexOf("BIND(0 AS ?rank)")).toBeLessThan(
+    query.indexOf("BIND(1 AS ?rank)")
+  );
+  expect(query).toContain("ORDER BY ?rank ?predicate");
+});

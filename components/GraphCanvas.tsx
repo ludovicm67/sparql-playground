@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { displayTerm, localName, type NodeKind, type TermRef } from "../lib/explore";
 import { type Graph, type GraphNode } from "../lib/graph";
-import { ChipIcon, CloseIcon, CloudIcon } from "./icons";
+import { ChipIcon, CloseIcon, CloudIcon, ResourceIcon } from "./icons";
 
 export type Viewport = { x: number; y: number; scale: number };
 
@@ -10,7 +10,7 @@ export const DEFAULT_VIEWPORT: Viewport = { x: 0, y: 0, scale: 1 };
 const NODE_WIDTH = 168;
 const NODE_HEIGHT = 46;
 
-type DropPayload = { kind: NodeKind; term: TermRef; label?: string };
+export type DropPayload = { kind: NodeKind; term: TermRef; label?: string };
 
 type Props = {
   graph: Graph;
@@ -20,6 +20,7 @@ type Props = {
   onMoveNode: (id: string, x: number, y: number) => void;
   onSelect: (id: string | undefined) => void;
   onRemove: (id: string) => void;
+  onOpenResource: (iri: string) => void;
   onDropTerm: (payload: DropPayload, position: { x: number; y: number }) => void;
 };
 
@@ -33,10 +34,14 @@ const kindIcon = (kind: NodeKind) => {
   return null;
 };
 
-/** Where an edge should meet a node box, so arrows stop at the border. */
-const anchor = (from: GraphNode, to: GraphNode) => {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
+/**
+ * Where an edge should meet a node box, so arrows stop at the border. Aiming at
+ * the curve's control point rather than the far node also spreads the departure
+ * points of parallel edges.
+ */
+const anchor = (from: GraphNode, target: { x: number; y: number }) => {
+  const dx = target.x - from.x;
+  const dy = target.y - from.y;
   const halfWidth = NODE_WIDTH / 2;
   const halfHeight = NODE_HEIGHT / 2;
 
@@ -61,6 +66,7 @@ const GraphCanvas: React.FC<Props> = ({
   onMoveNode,
   onSelect,
   onRemove,
+  onOpenResource,
   onDropTerm,
 }) => {
   const surfaceRef = useRef<HTMLDivElement>(null);
@@ -230,35 +236,72 @@ const GraphCanvas: React.FC<Props> = ({
               return null;
             }
 
-            const start = anchor(from, to);
-            const end = anchor(to, from);
             const active = selectedId === from.id || selectedId === to.id;
 
             // Several predicates can join the same two nodes, in either
-            // direction. Bow them apart so their labels do not stack up.
+            // direction. Fan them apart so no two arrows or labels coincide.
             const siblings = graph.edges.filter(
               (other) =>
                 (other.from === edge.from && other.to === edge.to) ||
                 (other.from === edge.to && other.to === edge.from)
             );
             const index = siblings.findIndex((other) => other.id === edge.id);
-            const spread = (index - (siblings.length - 1) / 2) * 34;
 
-            const dx = end.x - start.x;
-            const dy = end.y - start.y;
-            const length = Math.hypot(dx, dy) || 1;
-            // Control point pushed along the line's normal.
-            const controlX = (start.x + end.x) / 2 - (dy / length) * spread;
-            const controlY = (start.y + end.y) / 2 + (dx / length) * spread;
+            if (from.id === to.id) {
+              // A self-link has no direction to bow along, so loop it above the
+              // node, each one on a wider arc than the last.
+              const radius = 30 + index * 16;
+              const start = { x: from.x - 26, y: from.y - NODE_HEIGHT / 2 };
+              const finish = { x: from.x + 26, y: from.y - NODE_HEIGHT / 2 };
+
+              const peak = from.y - NODE_HEIGHT / 2 - radius * 1.9;
+
+              return (
+                <g key={edge.id} className={`edge${active ? " is-active" : ""}`}>
+                  <path
+                    d={`M ${start.x} ${start.y} C ${start.x - radius} ${peak}, ${finish.x + radius} ${peak}, ${finish.x} ${finish.y}`}
+                    fill="none"
+                    markerEnd="url(#graph-arrow)"
+                  />
+                  <text x={from.x} y={peak + 14} textAnchor="middle">
+                    {localName(edge.predicate)}
+                  </text>
+                </g>
+              );
+            }
+
+            // The normal is taken in a fixed frame for the pair — ordered by
+            // node id, not by this edge's direction. Otherwise A->B and B->A
+            // with mirrored offsets land on the *same* curve and one label
+            // hides under the other.
+            const [low, high] = from.id <= to.id ? [from, to] : [to, from];
+            const frameX = high.x - low.x;
+            const frameY = high.y - low.y;
+            const frameLength = Math.hypot(frameX, frameY) || 1;
+
+            const spread = (index - (siblings.length - 1) / 2) * 54;
+            const controlX = (from.x + to.x) / 2 - (frameY / frameLength) * spread;
+            const controlY = (from.y + to.y) / 2 + (frameX / frameLength) * spread;
+
+            const start = anchor(from, { x: controlX, y: controlY });
+            const finish = anchor(to, { x: controlX, y: controlY });
 
             const path =
               spread === 0
-                ? `M ${start.x} ${start.y} L ${end.x} ${end.y}`
-                : `M ${start.x} ${start.y} Q ${controlX} ${controlY} ${end.x} ${end.y}`;
+                ? `M ${start.x} ${start.y} L ${finish.x} ${finish.y}`
+                : `M ${start.x} ${start.y} Q ${controlX} ${controlY} ${finish.x} ${finish.y}`;
 
-            // Midpoint of a quadratic Bézier at t = 0.5.
-            const labelX = (start.x + 2 * controlX + end.x) / 4;
-            const labelY = (start.y + 2 * controlY + end.y) / 4;
+            // Fanning the curves apart is not enough on its own: labels are far
+            // wider than the gap between them. Slide each one to a different
+            // point along its own curve as well.
+            const t =
+              siblings.length === 1
+                ? 0.5
+                : 0.32 + (index / (siblings.length - 1)) * 0.36;
+            const labelX =
+              (1 - t) * (1 - t) * start.x + 2 * (1 - t) * t * controlX + t * t * finish.x;
+            const labelY =
+              (1 - t) * (1 - t) * start.y + 2 * (1 - t) * t * controlY + t * t * finish.y;
 
             return (
               <g key={edge.id} className={`edge${active ? " is-active" : ""}`}>
@@ -287,18 +330,42 @@ const GraphCanvas: React.FC<Props> = ({
           >
             <span className="node-icon">{kindIcon(node.kind)}</span>
             <span className="node-label">{node.label ?? displayTerm(node.term)}</span>
-            <button
-              className="node-remove"
-              type="button"
-              aria-label={`Remove ${displayTerm(node.term)} from the canvas`}
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={(event) => {
-                event.stopPropagation();
-                onRemove(node.id);
-              }}
-            >
-              <CloseIcon size={11} />
-            </button>
+
+            <span className="node-actions">
+              {node.term.type === "uri" ? (
+                // Straight to the resource page, without going through the
+                // inspector — a node with nothing leading out of it has no
+                // other reason to open one.
+                <button
+                  className="node-action"
+                  type="button"
+                  aria-label={`Open ${displayTerm(node.term)} as a resource`}
+                  title="Open as a resource"
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (node.term.type === "uri") {
+                      onOpenResource(node.term.value);
+                    }
+                  }}
+                >
+                  <ResourceIcon size={11} />
+                </button>
+              ) : null}
+
+              <button
+                className="node-action is-danger"
+                type="button"
+                aria-label={`Remove ${displayTerm(node.term)} from the canvas`}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onRemove(node.id);
+                }}
+              >
+                <CloseIcon size={11} />
+              </button>
+            </span>
           </div>
         ))}
       </div>

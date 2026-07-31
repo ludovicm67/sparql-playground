@@ -73,8 +73,17 @@ export const isReferenceable = (term: TermRef) => {
 
 /* ------------------------------------------------------------- queries */
 
-const LABEL_PATH =
-  "<http://www.w3.org/2000/01/rdf-schema#label>|<http://schema.org/name>|<http://xmlns.com/foaf/0.1/name>|<http://purl.org/dc/terms/title>";
+/**
+ * Predicates consulted for a human-readable name, **in order of preference**.
+ * A resource carrying several of these gets the first one listed; a resource
+ * carrying none falls back to the local name of its IRI.
+ */
+export const LABEL_PREDICATES = [
+  "http://www.w3.org/2000/01/rdf-schema#label",
+  "http://schema.org/name",
+  "http://xmlns.com/foaf/0.1/name",
+  "http://purl.org/dc/terms/title",
+];
 
 export const classesQuery = (limit: number, offset: number) =>
   `# Classes in this dataset, most populated first
@@ -98,11 +107,12 @@ LIMIT ${limit} OFFSET ${offset}`;
  * never multiply rows and break LIMIT/OFFSET paging.
  */
 export const labelsQuery = (iris: string[]) =>
-  `SELECT ?subject (SAMPLE(?value) AS ?label) WHERE {
+  `SELECT ?subject ?predicate ?label WHERE {
   VALUES ?subject { ${iris.map(iriRef).join(" ")} }
-  ?subject ${LABEL_PATH} ?value .
+  VALUES ?predicate { ${LABEL_PREDICATES.map(iriRef).join(" ")} }
+  ?subject ?predicate ?label .
 }
-GROUP BY ?subject`;
+LIMIT ${iris.length * LABEL_PREDICATES.length * 4}`;
 
 export const predicatesQuery = (node: { kind: NodeKind; iri: string }) =>
   node.kind === "class"
@@ -144,22 +154,24 @@ ORDER BY ?object
 LIMIT ${limit} OFFSET ${offset}`;
 
 /**
- * Direct triples between a newly added IRI and the ones already on the canvas,
- * in both directions.
+ * Direct triples between newly added IRIs and everything on the canvas, in both
+ * directions. `all` includes the new IRIs, so links among the new arrivals are
+ * found too — otherwise a node added from another node's predicate list would
+ * only ever show that one edge.
  */
-export const directLinksQuery = (iri: string, others: string[]) =>
+export const directLinksQuery = (added: string[], all: string[]) =>
   `SELECT DISTINCT ?from ?predicate ?to WHERE {
   {
-    VALUES ?to { ${others.map(iriRef).join(" ")} }
-    ${iriRef(iri)} ?predicate ?to .
-    BIND(${iriRef(iri)} AS ?from)
+    VALUES ?from { ${added.map(iriRef).join(" ")} }
+    VALUES ?to { ${all.map(iriRef).join(" ")} }
+    ?from ?predicate ?to .
   } UNION {
-    VALUES ?from { ${others.map(iriRef).join(" ")} }
-    ?from ?predicate ${iriRef(iri)} .
-    BIND(${iriRef(iri)} AS ?to)
+    VALUES ?from { ${all.map(iriRef).join(" ")} }
+    VALUES ?to { ${added.map(iriRef).join(" ")} }
+    ?from ?predicate ?to .
   }
 }
-LIMIT 200`;
+LIMIT 500`;
 
 /**
  * Schema-level links: a predicate that connects *instances* of one class to
@@ -270,18 +282,77 @@ export const parseObjects = (result: QueryResult): ObjectEntry[] =>
     return term ? [{ term }] : [];
   });
 
+/** The browser's language, when there is a browser. */
+const preferredLanguage = () => {
+  if (typeof navigator === "undefined" || !navigator.language) {
+    return undefined;
+  }
+  return navigator.language.split("-")[0].toLowerCase();
+};
+
+/**
+ * Lower is better: the reader's own language first, then a label with no
+ * language tag at all, then anything else.
+ */
+const languageRank = (language: string | undefined, preferred: string | undefined) => {
+  if (!language) {
+    return 1;
+  }
+  return preferred && language.split("-")[0].toLowerCase() === preferred ? 0 : 2;
+};
+
+/**
+ * Pick one label per subject: by predicate preference first, then by language,
+ * then alphabetically so the same data always yields the same name.
+ */
 export const parseLabels = (result: QueryResult): Map<string, string> => {
-  const labels = new Map<string, string>();
+  const preferred = preferredLanguage();
+  const best = new Map<
+    string,
+    { predicate: number; language: number; value: string }
+  >();
 
   for (const binding of bindings(result)) {
     const subject = toTerm(binding.subject);
     const label = toTerm(binding.label);
-    if (subject?.type === "uri" && label && label.value) {
-      labels.set(subject.value, label.value);
+
+    if (subject?.type !== "uri" || !label || !label.value.trim()) {
+      continue;
+    }
+
+    const predicateTerm = toTerm(binding.predicate);
+    const known =
+      predicateTerm?.type === "uri"
+        ? LABEL_PREDICATES.indexOf(predicateTerm.value)
+        : -1;
+
+    const candidate = {
+      // An unrecognised (or absent) predicate ranks below every known one.
+      predicate: known < 0 ? LABEL_PREDICATES.length : known,
+      language: languageRank(
+        label.type === "literal" ? label.lang : undefined,
+        preferred
+      ),
+      value: label.value,
+    };
+
+    const current = best.get(subject.value);
+    const better =
+      !current ||
+      candidate.predicate < current.predicate ||
+      (candidate.predicate === current.predicate &&
+        (candidate.language < current.language ||
+          (candidate.language === current.language &&
+            candidate.value.localeCompare(current.value) < 0)));
+
+    if (better) {
+      best.set(subject.value, candidate);
     }
   }
 
-  return labels;
+  return new Map(
+    Array.from(best, ([subject, chosen]) => [subject, chosen.value])
+  );
 };
 
 export type ParsedLink = { from: string; predicate: string; to: string };

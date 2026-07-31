@@ -45,9 +45,14 @@ and the Explore panel and canvas nodes both have a button to open the resource
 they refer to. From the resource page you can go the other way: open the query
 behind it, drop it onto the Explore canvas, or share it.
 
+Blank nodes are expanded in place, two levels deep, so an address or a nested
+structure reads as itself rather than as `_:b0`. They have no identity outside
+the query that found them, so this has to happen in the same query.
+
 Everything is one query — the same one **open as a query** hands to the editor,
-so what you see is exactly what was asked. It is bounded at 500 statements and
-says so when a resource is bigger than that; open the query to raise the limit.
+so what you see is exactly what was asked. It is bounded at 500 statements, with
+outgoing statements ranked first so that a resource with a long tail of
+references keeps its own description; the page says so when it is truncated.
 
 Looked-up resources are kept in this browser, per connection, and listed in the
 sidebar.
@@ -61,11 +66,33 @@ On the left, every class in the dataset with its instance count; open one to
 page through its instances. Both lists load more as you scroll. Each row has a
 button to open the matching query back in **Query** mode.
 
-Drag a class or an instance onto the canvas — or use its **+**. Dropping an IRI
-asks the endpoint how it relates to what is already there, in both directions,
-and draws the predicates it finds. Between classes it also looks for
-*schema-level* links: a predicate whose subjects are instances of one class and
-whose objects are instances of another.
+Nodes are named with the endpoint's own label, looked up in this order:
+
+1. `rdfs:label`
+2. `schema:name`
+3. `foaf:name`
+4. `dcterms:title`
+5. the last segment of the IRI, when none of the above exists
+
+Where several are present the first one listed wins, preferring your own
+language and then a label with no language tag. The list lives in
+`LABEL_PREDICATES` in [lib/explore.ts](lib/explore.ts).
+
+Drag a class or an instance onto the canvas — or use its **+**. However a node
+arrives, including through another node's predicate list, it is checked against
+*everything* already on the canvas in both directions, so a node that connects
+back to something you added earlier shows that edge too. Between classes it also
+looks for *schema-level* links: a predicate whose subjects are instances of one
+class and whose objects are instances of another.
+
+Every predicate joining two nodes gets its own arrow. Parallel edges fan apart
+and their labels slide to different points along their curves, and a resource
+pointing at itself is drawn as a loop.
+
+Hovering a node reveals a button to open it in **Resource** mode directly —
+useful for a leaf that has nothing leading out of it and so no reason to open
+the predicate list. Values are leaves by nature: they carry no IRI, so selecting
+one shows what it is instead of offering a page it cannot have.
 
 Click a node to list its predicates, then a predicate to list its values. Tick
 any of them — or **Select all** — to drop them onto the canvas, already wired to

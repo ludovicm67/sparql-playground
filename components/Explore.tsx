@@ -16,6 +16,7 @@ import {
   directLinksQuery,
   instancesOfClassQuery,
   instancesQuery,
+  isSafeIri,
   labelsQuery,
   localName,
   type NodeKind,
@@ -47,6 +48,7 @@ import { type SharedCanvas } from "../lib/share";
 import { runQuery } from "../lib/sparql";
 import CanvasTabs from "./CanvasTabs";
 import ExplorePanel from "./ExplorePanel";
+import LiteralInspector from "./LiteralInspector";
 import GraphCanvas, { type Viewport } from "./GraphCanvas";
 import NodeInspector from "./NodeInspector";
 import { LayoutIcon, ShareIcon, TrashIcon } from "./icons";
@@ -225,39 +227,70 @@ const Explore: React.FC<Props> = ({
   );
 
   /**
+   * Replace the placeholder local names with the endpoint's own labels, so a
+   * node reads "Sheldon Cooper" rather than "sheldon-cooper".
+   */
+  const nameNodes = useCallback(
+    async (iris: string[]) => {
+      const labels = await labelsFor(iris);
+      if (labels.size === 0) {
+        return;
+      }
+
+      setGraph((current) => ({
+        ...current,
+        nodes: current.nodes.map((node) =>
+          node.term.type === "uri" && labels.has(node.term.value)
+            ? { ...node, label: labels.get(node.term.value) }
+            : node
+        ),
+      }));
+    },
+    [labelsFor, setGraph]
+  );
+
+  /**
    * Discover how a newly placed IRI relates to what is already on the canvas:
    * direct triples always, plus schema-level links when both ends are classes.
    */
   const discoverLinks = useCallback(
-    async (iri: string, kind: NodeKind) => {
+    async (added: string[]) => {
       const current = graphRef.current;
-      const others = current.nodes
-        .filter((node) => node.term.type === "uri" && node.term.value !== iri)
+      const all = current.nodes
+        .filter((node) => node.term.type === "uri")
         .map((node) => node.term.value);
 
-      if (others.length === 0) {
+      // `all` is the graph as it stood before the update, so make sure the new
+      // arrivals are in it: they can be linked to each other.
+      const everything = Array.from(new Set([...all, ...added]));
+      const newcomers = added.filter((iri) => isSafeIri(iri));
+
+      if (newcomers.length === 0 || everything.length < 2) {
         return;
       }
 
       const found: { from: string; predicate: string; to: string }[] = [];
 
       try {
-        found.push(...parseLinks(await run(directLinksQuery(iri, others))));
+        found.push(...parseLinks(await run(directLinksQuery(newcomers, everything))));
       } catch {
         // A slow or restricted endpoint just means no discovered edges.
       }
 
-      if (kind === "class") {
-        const otherClasses = current.nodes
-          .filter((node) => node.kind === "class" && node.term.value !== iri)
-          .map((node) => node.term.value);
+      // Schema-level links only make sense between class nodes.
+      const classes = current.nodes
+        .filter((node) => node.kind === "class" && node.term.type === "uri")
+        .map((node) => node.term.value);
 
-        if (otherClasses.length > 0) {
-          try {
-            found.push(...parseLinks(await run(schemaLinksQuery(iri, otherClasses))));
-          } catch {
-            // Schema-level discovery is best-effort; it can be costly.
-          }
+      for (const iri of newcomers) {
+        const others = classes.filter((candidate) => candidate !== iri);
+        if (!classes.includes(iri) || others.length === 0) {
+          continue;
+        }
+        try {
+          found.push(...parseLinks(await run(schemaLinksQuery(iri, others))));
+        } catch {
+          // Schema-level discovery is best-effort; it can be costly.
         }
       }
 
@@ -286,7 +319,7 @@ const Explore: React.FC<Props> = ({
   );
 
   const addTerm = useCallback(
-    (kind: NodeKind, term: TermRef, at?: { x: number; y: number }) => {
+    (kind: NodeKind, term: TermRef, at?: { x: number; y: number }, label?: string) => {
       // The id is derived from the term, so it can be known before the update
       // and the updater itself stays pure.
       const id = nodeId(term);
@@ -297,7 +330,7 @@ const Explore: React.FC<Props> = ({
         addNode(current, {
           kind,
           term,
-          label: term.type === "uri" ? localName(term.value) : term.value,
+          label: label ?? (term.type === "uri" ? localName(term.value) : term.value),
           ...freePosition(current, preferred),
         }).graph
       );
@@ -305,10 +338,13 @@ const Explore: React.FC<Props> = ({
 
       if (isNew && term.type === "uri") {
         setBusy(true);
-        void discoverLinks(term.value, kind).finally(() => setBusy(false));
+        void Promise.all([
+          discoverLinks([term.value]),
+          label ? Promise.resolve() : nameNodes([term.value]),
+        ]).finally(() => setBusy(false));
       }
     },
-    [centreOfView, discoverLinks, setGraph]
+    [centreOfView, discoverLinks, nameNodes, setGraph]
   );
 
   useEffect(() => {
@@ -321,6 +357,13 @@ const Explore: React.FC<Props> = ({
    */
   const addObjects = useCallback(
     (sourceId: string, predicate: string, terms: TermRef[]) => {
+      // Which of these are actually new has to be decided before the update so
+      // the updater stays pure.
+      const arrivals = terms
+        .filter((term) => term.type === "uri")
+        .map((term) => term.value)
+        .filter((iri) => !findNode(graphRef.current, nodeId({ type: "uri", value: iri })));
+
       setGraph((current) => {
         let next = current;
         const source = findNode(current, sourceId);
@@ -346,8 +389,17 @@ const Explore: React.FC<Props> = ({
 
         return addEdges(next, edges);
       });
+
+      // The edge back to the source is known, but these nodes may also connect
+      // to anything else already on the canvas — and to each other.
+      if (arrivals.length > 0) {
+        setBusy(true);
+        void Promise.all([discoverLinks(arrivals), nameNodes(arrivals)]).finally(() =>
+          setBusy(false)
+        );
+      }
     },
-    [setGraph]
+    [discoverLinks, nameNodes, setGraph]
   );
 
   const autoLayout = useCallback(() => {
@@ -396,7 +448,7 @@ const Explore: React.FC<Props> = ({
         loadClasses={loadClasses}
         loadInstances={loadInstances}
         onOpenClass={setOpenedClass}
-        onAddTerm={(kind, term) => addTerm(kind, term)}
+        onAddTerm={(kind, term, label) => addTerm(kind, term, undefined, label)}
         onQueryClass={(iri) => onOpenQuery(instancesOfClassQuery(iri))}
         onQueryInstance={(iri) => onOpenQuery(describeQuery(iri))}
         onOpenResource={onOpenResource}
@@ -513,10 +565,19 @@ const Explore: React.FC<Props> = ({
               setGraph((current) => removeNode(current, id));
               setSelectedId((current) => (current === id ? undefined : current));
             }}
+            onOpenResource={onOpenResource}
             onDropTerm={(payload, position) =>
-              addTerm(payload.kind, payload.term, position)
+              addTerm(payload.kind, payload.term, position, payload.label)
             }
           />
+
+          {selected && selected.term.type !== "uri" ? (
+            <LiteralInspector
+              key={selected.id}
+              node={selected}
+              onClose={() => setSelectedId(undefined)}
+            />
+          ) : null}
 
           {selected && selected.term.type === "uri" ? (
             <NodeInspector

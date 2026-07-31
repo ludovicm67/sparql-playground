@@ -133,7 +133,6 @@ export const sanitizeGraph = (value: unknown): Graph => {
         typeof to !== "string" ||
         typeof predicate !== "string" ||
         !isSafeIri(predicate) ||
-        from === to ||
         !seen.has(from) ||
         !seen.has(to)
       ) {

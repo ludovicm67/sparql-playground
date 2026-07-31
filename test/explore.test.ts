@@ -8,6 +8,7 @@ import {
   instancesQuery,
   isReferenceable,
   isSafeIri,
+  LABEL_PREDICATES,
   labelsQuery,
   localName,
   objectsQuery,
@@ -66,7 +67,7 @@ describe("query builders", () => {
     assert.throws(() => objectsQuery({ kind: "instance", iri: "http://a" }, attack, 1, 0), /unsafe IRI/);
     assert.throws(() => describeQuery(attack), /unsafe IRI/);
     assert.throws(() => labelsQuery(["http://ok", attack]), /unsafe IRI/);
-    assert.throws(() => directLinksQuery(attack, ["http://ok"]), /unsafe IRI/);
+    assert.throws(() => directLinksQuery([attack], ["http://ok"]), /unsafe IRI/);
     assert.throws(() => schemaLinksQuery("http://ok", [attack]), /unsafe IRI/);
   });
 
@@ -90,7 +91,7 @@ describe("query builders", () => {
       instancesQuery("http://a/C", 10, 0),
       predicatesQuery({ kind: "class", iri: "http://a/C" }),
       objectsQuery({ kind: "class", iri: "http://a/C" }, "http://a/p", 10, 0),
-      directLinksQuery("http://a/x", ["http://a/y"]),
+      directLinksQuery(["http://a/x"], ["http://a/y"]),
       schemaLinksQuery("http://a/C", ["http://a/D"]),
       instancesOfClassQuery("http://a/C"),
       describeQuery("http://a/x"),
@@ -190,16 +191,11 @@ describe("parsers", () => {
     assert.equal(objects[1].term.type, "uri");
   });
 
-  it("reads predicates, labels and links", () => {
+  it("reads predicates and links", () => {
     assert.deepEqual(
       parsePredicates(sparqlJson(["predicate", "count"], [{ predicate: uri("http://a/p"), count: literal("3") }])),
       [{ iri: "http://a/p", count: 3 }]
     );
-
-    const labels = parseLabels(
-      sparqlJson(["subject", "label"], [{ subject: uri("http://a/x"), label: literal("X") }])
-    );
-    assert.equal(labels.get("http://a/x"), "X");
 
     assert.deepEqual(
       parseLinks(
@@ -238,5 +234,125 @@ describe("presentation helpers", () => {
     ]);
 
     assert.equal(keys.size, 5);
+  });
+});
+
+describe("labels", () => {
+  const RDFS_LABEL = "http://www.w3.org/2000/01/rdf-schema#label";
+  const SCHEMA_NAME = "http://schema.org/name";
+  const FOAF_NAME = "http://xmlns.com/foaf/0.1/name";
+
+  it("asks for each label predicate by name, in preference order", () => {
+    const query = labelsQuery(["http://a/x"]);
+
+    assert.equal(LABEL_PREDICATES[0], RDFS_LABEL);
+    assert.equal(LABEL_PREDICATES[1], SCHEMA_NAME);
+    for (const predicate of LABEL_PREDICATES) {
+      assert.ok(query.includes(`<${predicate}>`), predicate);
+    }
+    // The predicate has to come back so the caller can rank the answers; a
+    // SAMPLE over an alternation would have thrown that away.
+    assert.match(query, /SELECT \?subject \?predicate \?label/);
+  });
+
+  it("prefers rdfs:label over the others", () => {
+    const labels = parseLabels(
+      sparqlJson(
+        ["subject", "predicate", "label"],
+        [
+          { subject: uri("http://a/x"), predicate: uri(FOAF_NAME), label: literal("Foaf") },
+          { subject: uri("http://a/x"), predicate: uri(SCHEMA_NAME), label: literal("Schema") },
+          { subject: uri("http://a/x"), predicate: uri(RDFS_LABEL), label: literal("Rdfs") },
+        ]
+      )
+    );
+
+    assert.equal(labels.get("http://a/x"), "Rdfs");
+  });
+
+  it("falls back to schema:name when there is no rdfs:label", () => {
+    const labels = parseLabels(
+      sparqlJson(
+        ["subject", "predicate", "label"],
+        [
+          { subject: uri("http://a/x"), predicate: uri(FOAF_NAME), label: literal("Foaf") },
+          { subject: uri("http://a/x"), predicate: uri(SCHEMA_NAME), label: literal("Schema") },
+        ]
+      )
+    );
+
+    assert.equal(labels.get("http://a/x"), "Schema");
+  });
+
+  it("returns nothing for a resource with no label, leaving the local name", () => {
+    const labels = parseLabels(sparqlJson(["subject", "predicate", "label"], []));
+
+    assert.equal(labels.get("http://a/x"), undefined);
+    assert.equal(localName("http://a/some-thing"), "some-thing");
+  });
+
+  it("ignores blank labels and non-IRI subjects", () => {
+    const labels = parseLabels(
+      sparqlJson(
+        ["subject", "predicate", "label"],
+        [
+          { subject: uri("http://a/x"), predicate: uri(RDFS_LABEL), label: literal("   ") },
+          { subject: bnode("b0"), predicate: uri(RDFS_LABEL), label: literal("Blank") },
+        ]
+      )
+    );
+
+    assert.equal(labels.size, 0);
+  });
+
+  it("prefers an untagged label over a foreign language, and is deterministic", () => {
+    const rows = [
+      { subject: uri("http://a/x"), predicate: uri(RDFS_LABEL), label: literal("Zebra", { "xml:lang": "de" }) },
+      { subject: uri("http://a/x"), predicate: uri(RDFS_LABEL), label: literal("Plain") },
+      { subject: uri("http://a/x"), predicate: uri(RDFS_LABEL), label: literal("Alpaga", { "xml:lang": "fr" }) },
+    ];
+
+    const forwards = parseLabels(sparqlJson(["subject", "predicate", "label"], rows));
+    const backwards = parseLabels(
+      sparqlJson(["subject", "predicate", "label"], [...rows].reverse())
+    );
+
+    assert.equal(forwards.get("http://a/x"), "Plain");
+    // Row order from an endpoint is not guaranteed; the chosen name must be.
+    assert.equal(backwards.get("http://a/x"), forwards.get("http://a/x"));
+  });
+
+  it("breaks ties alphabetically so the same data always names the same way", () => {
+    const rows = [
+      { subject: uri("http://a/x"), predicate: uri(RDFS_LABEL), label: literal("Beta", { "xml:lang": "de" }) },
+      { subject: uri("http://a/x"), predicate: uri(RDFS_LABEL), label: literal("Alpha", { "xml:lang": "es" }) },
+    ];
+
+    assert.equal(
+      parseLabels(sparqlJson(["subject", "predicate", "label"], rows)).get("http://a/x"),
+      "Alpha"
+    );
+  });
+
+  it("still reads the older shape, where no predicate came back", () => {
+    const labels = parseLabels(
+      sparqlJson(["subject", "label"], [{ subject: uri("http://a/x"), label: literal("X") }])
+    );
+
+    assert.equal(labels.get("http://a/x"), "X");
+  });
+
+  it("lets a known predicate win over an unrecognised one", () => {
+    const labels = parseLabels(
+      sparqlJson(
+        ["subject", "predicate", "label"],
+        [
+          { subject: uri("http://a/x"), predicate: uri("http://a/nickname"), label: literal("Nick") },
+          { subject: uri("http://a/x"), predicate: uri(SCHEMA_NAME), label: literal("Proper") },
+        ]
+      )
+    );
+
+    assert.equal(labels.get("http://a/x"), "Proper");
   });
 });

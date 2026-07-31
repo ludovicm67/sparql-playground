@@ -120,6 +120,112 @@ const server = createServer(async (req, res) => {
     (match) => (match.startsWith("#") ? "" : match)
   );
 
+  // A tiny triangle: every node links to both others, plus labels and a
+  // self-link. Exercises link discovery, naming and multi-edge rendering.
+  if (url.pathname === "/triangle") {
+    const json = (body) => {
+      res.writeHead(200, { "content-type": "application/sparql-results+json" });
+      res.end(JSON.stringify(body));
+    };
+    const NODES = ["a", "b", "c"];
+    const NAMES = { a: "Alpha", b: "Beta" };
+    const iri = (name) => `http://ex.org/${name}`;
+
+    if (/\?class/.test(query)) {
+      return json({
+        head: { vars: ["class", "count"] },
+        results: {
+          bindings: [
+            { class: { type: "uri", value: "http://ex.org/Thing" }, count: { type: "literal", value: "3" } },
+          ],
+        },
+      });
+    }
+    if (/\?instance/.test(query)) {
+      return json({
+        head: { vars: ["instance"] },
+        results: {
+          bindings: NODES.map((name) => ({ instance: { type: "uri", value: iri(name) } })),
+        },
+      });
+    }
+    if (/\?subject.*\?label|\?label.*\?subject/s.test(query)) {
+      const asked = [...query.matchAll(/<http:\/\/ex\.org\/([a-z]+)>/g)].map((m) => m[1]);
+      const RDFS = "http://www.w3.org/2000/01/rdf-schema#label";
+      const SCHEMA = "http://schema.org/name";
+      const FOAF = "http://xmlns.com/foaf/0.1/name";
+      const bindings = [];
+
+      for (const name of new Set(asked)) {
+        if (!NAMES[name]) continue;
+        // "a" carries all three, in the wrong order, to prove the ranking.
+        // "b" has only schema:name. "c" has none, so it keeps its local name.
+        if (name === "a") {
+          bindings.push(
+            { subject: { type: "uri", value: iri(name) }, predicate: { type: "uri", value: FOAF }, label: { type: "literal", value: "WRONG (foaf)" } },
+            { subject: { type: "uri", value: iri(name) }, predicate: { type: "uri", value: SCHEMA }, label: { type: "literal", value: "WRONG (schema)" } },
+            { subject: { type: "uri", value: iri(name) }, predicate: { type: "uri", value: RDFS }, label: { type: "literal", value: NAMES[name] } }
+          );
+        } else if (name === "b") {
+          bindings.push({
+            subject: { type: "uri", value: iri(name) },
+            predicate: { type: "uri", value: SCHEMA },
+            label: { type: "literal", value: NAMES[name] },
+          });
+        }
+      }
+
+      return json({ head: { vars: ["subject", "predicate", "label"] }, results: { bindings } });
+    }
+    if (/\?from.*\?to/s.test(query)) {
+      // Every ordered pair that both sides of the query mention, plus a loop.
+      const mentioned = new Set(
+        [...query.matchAll(/<http:\/\/ex\.org\/([a-z]+)>/g)].map((m) => m[1])
+      );
+      const bindings = [];
+      for (const from of mentioned) {
+        for (const to of mentioned) {
+          if (!NODES.includes(from) || !NODES.includes(to)) continue;
+          bindings.push({
+            from: { type: "uri", value: iri(from) },
+            predicate: { type: "uri", value: from === to ? "http://ex.org/self" : "http://ex.org/links" },
+            to: { type: "uri", value: iri(to) },
+          });
+          if (from !== to) {
+            bindings.push({
+              from: { type: "uri", value: iri(from) },
+              predicate: { type: "uri", value: "http://ex.org/alsoLinks" },
+              to: { type: "uri", value: iri(to) },
+            });
+          }
+        }
+      }
+      return json({ head: { vars: ["from", "predicate", "to"] }, results: { bindings } });
+    }
+    if (/\?predicate/.test(query)) {
+      return json({
+        head: { vars: ["predicate", "count"] },
+        results: {
+          bindings: [
+            { predicate: { type: "uri", value: "http://ex.org/links" }, count: { type: "literal", value: "2" } },
+          ],
+        },
+      });
+    }
+    if (/\?object/.test(query)) {
+      const subject = /<http:\/\/ex\.org\/([a-z]+)>/.exec(query)?.[1];
+      return json({
+        head: { vars: ["object"] },
+        results: {
+          bindings: NODES.filter((name) => name !== subject).map((name) => ({
+            object: { type: "uri", value: iri(name) },
+          })),
+        },
+      });
+    }
+    return json({ head: { vars: [] }, results: { bindings: [] } });
+  }
+
   // A synthetic, paginating dataset so LIMIT/OFFSET behaviour can be tested.
   if (url.pathname === "/big") {
     const limit = Number(/LIMIT\s+(\d+)/i.exec(query)?.[1] ?? 50);

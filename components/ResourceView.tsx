@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type * as oxigraph from "oxigraph/web";
 import { type Connection } from "../lib/connections";
-import { isSafeIri, labelsQuery, localName, parseLabels, type TermRef } from "../lib/explore";
+import { isSafeIri, labelsQuery, localName, parseLabels } from "../lib/explore";
 import {
   parseResource,
   type ResourceDetails,
   type ResourceProperty,
+  type ResourceValue,
   resourceIris,
   resourceQuery,
   withLabels,
@@ -33,7 +34,7 @@ type Props = {
 };
 
 const TermValue: React.FC<{
-  value: { term: TermRef; label?: string };
+  value: ResourceValue;
   onOpen: (uri: string) => void;
 }> = ({ value, onOpen }) => {
   const { term } = value;
@@ -55,7 +56,14 @@ const TermValue: React.FC<{
   }
 
   if (term.type === "bnode") {
-    return <span className="term term-bnode">_:{term.value}</span>;
+    // A blank node has no identity to follow, so show what hangs off it.
+    return value.nested && value.nested.length > 0 ? (
+      <div className="resource-nested">
+        <NestedProperties properties={value.nested} onOpen={onOpen} />
+      </div>
+    ) : (
+      <span className="term term-bnode">_:{term.value}</span>
+    );
   }
 
   const note = term.lang
@@ -75,6 +83,26 @@ const TermValue: React.FC<{
     </span>
   );
 };
+
+const NestedProperties: React.FC<{
+  properties: ResourceProperty[];
+  onOpen: (uri: string) => void;
+}> = ({ properties, onOpen }) => (
+  <dl className="resource-properties resource-properties--nested">
+    {properties.map((property) => (
+      <div className="resource-property" key={property.predicate}>
+        <dt title={property.predicate}>
+          {property.label ?? localName(property.predicate)}
+        </dt>
+        <dd>
+          {property.values.map((value, index) => (
+            <TermValue key={index} value={value} onOpen={onOpen} />
+          ))}
+        </dd>
+      </div>
+    ))}
+  </dl>
+);
 
 const PropertyTable: React.FC<{
   title: string;

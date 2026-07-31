@@ -75,16 +75,34 @@ describe("addEdges", () => {
   const b = nodeId({ type: "uri", value: "http://a/2" });
   const graph = withNodes("http://a/1", "http://a/2");
 
-  it("ignores duplicates, self-links and dangling ends", () => {
+  it("ignores duplicates and dangling ends", () => {
     const result = addEdges(graph, [
       { from: a, to: b, predicate: "http://p" },
       { from: a, to: b, predicate: "http://p" },
-      { from: a, to: a, predicate: "http://p" },
       { from: a, to: "missing", predicate: "http://p" },
       { from: "missing", to: b, predicate: "http://p" },
     ]);
 
     assert.equal(result.edges.length, 1);
+  });
+
+  it("keeps a self-link, which is a real statement", () => {
+    const result = addEdges(graph, [
+      { from: a, to: a, predicate: "http://knows" },
+      { from: a, to: a, predicate: "http://knows" },
+      { from: a, to: a, predicate: "http://sameAs" },
+    ]);
+
+    assert.equal(result.edges.length, 2);
+    assert.deepEqual(
+      result.edges.map((edge) => edge.predicate).sort(),
+      ["http://knows", "http://sameAs"]
+    );
+  });
+
+  it("takes self-links with the node when it is removed", () => {
+    const withLoop = addEdges(graph, [{ from: a, to: a, predicate: "http://p" }]);
+    assert.equal(removeNode(withLoop, a).edges.length, 0);
   });
 
   it("keeps both directions and distinct predicates apart", () => {
@@ -266,5 +284,107 @@ describe("fitViewport", () => {
     const centreX = (graph.nodes[0].x + graph.nodes[1].x) / 2;
 
     assert.ok(Math.abs(centreX * view.scale + view.x - 500) < 1);
+  });
+});
+
+describe("forceLayout with multi-edges", () => {
+  /** Three nodes, every pair joined by several predicates, plus self-links. */
+  const triangle = (predicatesPerPair: number) => {
+    const graph = withNodes("http://a/1", "http://a/2", "http://a/3");
+    const ids = graph.nodes.map((n) => n.id);
+    const edges = [];
+
+    for (const [from, to] of [
+      [0, 1],
+      [1, 2],
+      [0, 2],
+    ]) {
+      for (let n = 0; n < predicatesPerPair; n += 1) {
+        edges.push({ from: ids[from], to: ids[to], predicate: `http://p${n}` });
+        edges.push({ from: ids[to], to: ids[from], predicate: `http://q${n}` });
+      }
+    }
+    for (const id of ids) {
+      edges.push({ from: id, to: id, predicate: "http://self" });
+    }
+
+    return addEdges(graph, edges);
+  };
+
+  const spread = (graph: ReturnType<typeof triangle>) => {
+    const laid = forceLayout(graph);
+    let closest = Infinity;
+    for (let a = 0; a < laid.nodes.length; a += 1) {
+      for (let b = a + 1; b < laid.nodes.length; b += 1) {
+        closest = Math.min(
+          closest,
+          Math.hypot(laid.nodes[a].x - laid.nodes[b].x, laid.nodes[a].y - laid.nodes[b].y)
+        );
+      }
+    }
+    return closest;
+  };
+
+  it("does not squeeze nodes together as predicates pile up", () => {
+    // Applying the spring once per statement made this shrink with each extra
+    // predicate until the nodes sat on top of each other.
+    const one = spread(triangle(1));
+    const four = spread(triangle(4));
+
+    assert.ok(one > 100, `a single predicate per pair gave ${one}`);
+    assert.ok(four > 100, `four predicates per pair gave ${four}`);
+    assert.ok(
+      Math.abs(one - four) < one * 0.5,
+      `spacing changed from ${one} to ${four} just by adding predicates`
+    );
+  });
+
+  it("keeps a fully connected trio off a straight line", () => {
+    const laid = forceLayout(triangle(4));
+    const [a, b, c] = laid.nodes;
+
+    // Twice the triangle's area; zero would mean the three are collinear.
+    const area = Math.abs(
+      (b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y)
+    );
+    assert.ok(area > 10_000, `the three nodes are nearly collinear (area ${area})`);
+  });
+
+  it("lays out the same wherever the nodes happen to sit", () => {
+    // The bounding frame is centred on the origin. Nodes dropped on a canvas
+    // sit hundreds of pixels away from it, and clamping them to that frame used
+    // to flatten the whole graph onto one line.
+    const shifted = (dx: number, dy: number) => {
+      const base = triangle(2);
+      return forceLayout({
+        ...base,
+        nodes: base.nodes.map((node) => ({ ...node, x: node.x + dx, y: node.y + dy })),
+      });
+    };
+
+    const sides = (graph: ReturnType<typeof shifted>) => {
+      const [a, b, c] = graph.nodes;
+      const d = (p: typeof a, q: typeof a) =>
+        Math.round(Math.hypot(p.x - q.x, p.y - q.y));
+      return [d(a, b), d(b, c), d(a, c)].sort((one, two) => one - two);
+    };
+
+    const atOrigin = sides(shifted(0, 0));
+    assert.deepEqual(sides(shifted(900, 700)), atOrigin);
+    assert.deepEqual(sides(shifted(-1500, 2500)), atOrigin);
+
+    // And the result is a real triangle, not a degenerate line.
+    assert.ok(atOrigin[0] > 150, `sides came out ${atOrigin.join(", ")}`);
+  });
+
+  it("ignores self-links, which pull in no direction", () => {
+    let alone = withNodes("http://a/1", "http://a/2");
+    alone = addEdges(alone, [
+      { from: alone.nodes[0].id, to: alone.nodes[0].id, predicate: "http://self" },
+    ]);
+
+    for (const node of forceLayout(alone).nodes) {
+      assert.ok(Number.isFinite(node.x) && Number.isFinite(node.y));
+    }
   });
 });
