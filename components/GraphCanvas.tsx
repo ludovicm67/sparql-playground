@@ -326,7 +326,7 @@ const GraphCanvas: React.FC<Props> = ({
               width: NODE_WIDTH,
             }}
             onPointerDown={(event) => handleNodePointerDown(event, node)}
-            title={node.term.type === "uri" ? node.term.value : node.term.value}
+            data-tooltip={node.term.type === "uri" ? node.term.value : node.term.value}
           >
             <span className="node-icon">{kindIcon(node.kind)}</span>
             <span className="node-label">{node.label ?? displayTerm(node.term)}</span>
@@ -340,7 +340,7 @@ const GraphCanvas: React.FC<Props> = ({
                   className="node-action"
                   type="button"
                   aria-label={`Open ${displayTerm(node.term)} as a resource`}
-                  title="Open as a resource"
+                  data-tooltip="Open as a resource"
                   onPointerDown={(event) => event.stopPropagation()}
                   onClick={(event) => {
                     event.stopPropagation();

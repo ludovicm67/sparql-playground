@@ -103,7 +103,7 @@ const Results: React.FC<Props> = ({ results, onOpenResource }) => {
                 <td
                   key={variable}
                   className={term ? undefined : "is-unbound"}
-                  title={term ? undefined : "Unbound"}
+                  data-tooltip={term ? undefined : "Unbound"}
                 >
                   {term ? (
                     <TermCell term={term} onOpenResource={onOpenResource} />

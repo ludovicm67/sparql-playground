@@ -60,7 +60,7 @@ const PredicateList: React.FC<{
                 className="explore-row-main"
                 type="button"
                 onClick={() => onPick(predicate)}
-                title={predicate.iri}
+                data-tooltip={predicate.iri}
               >
                 <span className="explore-row-text">
                   <span className="explore-row-primary">{localName(predicate.iri)}</span>
@@ -151,7 +151,7 @@ const ObjectList: React.FC<{
               <li key={key}>
                 <label
                   className={`explore-row explore-object${canAdd ? "" : " is-disabled"}`}
-                  title={item.term.value}
+                  data-tooltip={item.term.value}
                 >
                   <input
                     type="checkbox"
@@ -242,7 +242,7 @@ const NodeInspector: React.FC<Props> = ({
                 type="button"
                 onClick={onOpenResource}
                 aria-label="Open as a resource"
-                title="Open as a resource"
+                data-tooltip="Open as a resource"
               >
                 <ResourceIcon size={13} />
               </button>
@@ -251,7 +251,7 @@ const NodeInspector: React.FC<Props> = ({
                 type="button"
                 onClick={onQueryNode}
                 aria-label="Open as a query"
-                title="Open as a query"
+                data-tooltip="Open as a query"
               >
                 <QueryIcon size={13} />
               </button>
@@ -268,14 +268,14 @@ const NodeInspector: React.FC<Props> = ({
         </div>
       </div>
 
-      <div className="explore-context" title={node.term.value}>
+      <div className="explore-context" data-tooltip={node.term.value}>
         {node.kind === "class" ? <ChipIcon size={13} /> : <CloudIcon size={13} />}
         <span>{node.label ?? displayTerm(node.term)}</span>
       </div>
 
       {predicate ? (
         <>
-          <div className="inspector-predicate" title={predicate.iri}>
+          <div className="inspector-predicate" data-tooltip={predicate.iri}>
             {localName(predicate.iri)}
           </div>
           <ObjectList

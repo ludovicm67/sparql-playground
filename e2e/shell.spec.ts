@@ -1,5 +1,13 @@
 import { expect, test } from "@playwright/test";
-import { editorValue, setEditorValue, switchMode, waitForApp, waitForEditor } from "./support";
+import {
+  addMockConnection,
+  editorValue,
+  setEditorValue,
+  switchMode,
+  tooltip,
+  waitForApp,
+  waitForEditor,
+} from "./support";
 
 test("serves a favicon in both formats", async ({ page, request }) => {
   await page.goto("/");
@@ -147,4 +155,124 @@ test("cancelling a run returns the panel to rest", async ({ page }) => {
   await page.getByRole("button", { name: /Cancel/ }).click();
   await expect(page.getByText("Nothing to show yet")).toBeVisible();
   await expect(page.getByRole("button", { name: /Run query/ })).toBeVisible();
+});
+
+test("shows its own tooltip instead of the browser's", async ({ page }) => {
+  await page.goto("/");
+  await waitForEditor(page);
+
+  // Nothing of ours should carry a native `title` — that is what produces the
+  // OS tooltip. Monaco's own DOM is not ours to change.
+  const natives = await page.evaluate(() =>
+    [...document.querySelectorAll("[title]")]
+      .filter((element) => !element.closest(".monaco-editor"))
+      .map((element) => element.tagName)
+  );
+  expect(natives).toEqual([]);
+
+  const trigger = page.getByRole("button", { name: "Format this query" });
+  await expect(trigger).toHaveAttribute("data-tooltip", /Format the query/);
+
+  await expect(tooltip(page)).toHaveCount(0);
+  await trigger.hover();
+  await expect(tooltip(page)).toBeVisible();
+  await expect(tooltip(page)).toContainText("Format the query");
+
+  // It sits above the trigger and inside the viewport.
+  const tip = (await tooltip(page).boundingBox())!;
+  const anchor = (await trigger.boundingBox())!;
+  expect(tip.y + tip.height).toBeLessThanOrEqual(anchor.y + 1);
+  expect(tip.x).toBeGreaterThanOrEqual(0);
+
+  await page.locator(".app-header").hover({ position: { x: 5, y: 5 } });
+  await expect(tooltip(page)).toHaveCount(0);
+});
+
+test("dismisses the tooltip on Escape and keeps it out of the way of clicks", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await waitForEditor(page);
+
+  await page.getByRole("button", { name: "Share this query" }).hover();
+  await expect(tooltip(page)).toBeVisible();
+
+  // It must never intercept a click aimed at what it is describing.
+  expect(
+    await tooltip(page).evaluate((el) => getComputedStyle(el).pointerEvents)
+  ).toBe("none");
+
+  await page.keyboard.press("Escape");
+  await expect(tooltip(page)).toHaveCount(0);
+});
+
+test("shows a tooltip on top of a modal dialog", async ({ page }) => {
+  await page.goto("/");
+  await waitForEditor(page);
+
+  await page.getByRole("button", { name: "Add a connection" }).click();
+  await page.waitForSelector("dialog.dialog");
+
+  // A plain positioned element would be painted under the dialog's top layer.
+  // Being an open popover *is* the guarantee of sitting above it; hit-testing
+  // cannot show this because the tooltip deliberately ignores the pointer.
+  await page.getByRole("button", { name: "GET", exact: true }).hover();
+  await expect(tooltip(page)).toBeVisible();
+
+  const layer = await tooltip(page).evaluate((element) => ({
+    supported: typeof (element as HTMLElement).showPopover === "function",
+    inTopLayer: element.matches(":popover-open"),
+  }));
+
+  expect(layer.supported).toBe(true);
+  expect(layer.inTopLayer).toBe(true);
+
+  // And it is placed over the dialog, not pushed off somewhere harmless.
+  const tip = (await tooltip(page).boundingBox())!;
+  const modal = (await page.locator("dialog.dialog").boundingBox())!;
+  expect(tip.x).toBeGreaterThan(modal.x - tip.width);
+  expect(tip.y).toBeGreaterThan(modal.y - tip.height);
+});
+
+test("asks before destroying things, in its own dialog", async ({ page }) => {
+  let nativeDialogs = 0;
+  page.on("dialog", (dialog) => {
+    nativeDialogs += 1;
+    void dialog.dismiss();
+  });
+
+  await page.goto("/");
+  await waitForEditor(page);
+  await addMockConnection(page);
+  await expect(page.locator(".connection-name")).toHaveCount(2);
+
+  const row = page.locator(".connection", { hasText: "Mock" });
+  await row.hover();
+  await row.getByRole("button", { name: /Delete/ }).click();
+
+  const dialog = page.locator("dialog.dialog--confirm");
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText("Delete this connection?");
+  await expect(dialog).toContainText("Mock");
+
+  // Cancelling keeps the connection.
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator(".connection-name")).toHaveCount(2);
+
+  // Escape also means no.
+  await row.hover();
+  await row.getByRole("button", { name: /Delete/ }).click();
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator(".connection-name")).toHaveCount(2);
+
+  // Confirming goes through.
+  await row.hover();
+  await row.getByRole("button", { name: /Delete/ }).click();
+  await dialog.getByRole("button", { name: "Delete" }).click();
+  await expect(page.locator(".connection-name")).toHaveCount(1);
+
+  expect(nativeDialogs, "the browser's own dialog was used").toBe(0);
 });

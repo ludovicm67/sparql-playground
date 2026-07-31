@@ -2,6 +2,8 @@ import type { NextPage } from "next";
 import Head from "next/head";
 import Interface from "../components/Interface";
 import StoreProvider from "../components/StoreProvider";
+import ConfirmProvider from "../components/ConfirmProvider";
+import Tooltips from "../components/Tooltips";
 
 const Home: NextPage = () => {
   return (
@@ -19,9 +21,12 @@ const Home: NextPage = () => {
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </Head>
 
-      <StoreProvider>
-        <Interface />
-      </StoreProvider>
+      <ConfirmProvider>
+        <StoreProvider>
+          <Interface />
+        </StoreProvider>
+      </ConfirmProvider>
+      <Tooltips />
     </>
   );
 };

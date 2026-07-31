@@ -507,7 +507,7 @@ const Explore: React.FC<Props> = ({
               onClick={autoLayout}
               disabled={graph.nodes.length < 2}
               aria-label="Tidy up the layout"
-              title="Arrange the nodes and fit them to the view"
+              data-tooltip="Arrange the nodes and fit them to the view"
             >
               <LayoutIcon />
             </button>
@@ -524,7 +524,7 @@ const Explore: React.FC<Props> = ({
               }
               disabled={graph.nodes.length === 0}
               aria-label="Share this canvas"
-              title="Get a link to this canvas"
+              data-tooltip="Get a link to this canvas"
             >
               <ShareIcon size={14} />
             </button>
@@ -533,7 +533,7 @@ const Explore: React.FC<Props> = ({
               type="button"
               onClick={() => setViewport({ x: 0, y: 0, scale: 1 })}
               aria-label="Reset the view"
-              title="Reset zoom and position"
+              data-tooltip="Reset zoom and position"
             >
               <span className="reset-view">{Math.round(viewport.scale * 100)}%</span>
             </button>
@@ -546,7 +546,7 @@ const Explore: React.FC<Props> = ({
               }}
               disabled={graph.nodes.length === 0}
               aria-label="Clear the canvas"
-              title="Clear the canvas"
+              data-tooltip="Clear the canvas"
             >
               <TrashIcon size={13} />
             </button>

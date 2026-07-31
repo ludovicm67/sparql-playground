@@ -45,7 +45,7 @@ const TermValue: React.FC<{
         className="resource-link"
         type="button"
         onClick={() => onOpen(term.value)}
-        title={term.value}
+        data-tooltip={term.value}
       >
         <span className="resource-link-label">
           {value.label ?? localName(term.value)}
@@ -76,7 +76,7 @@ const TermValue: React.FC<{
     <span className="term term-literal resource-literal">
       {term.value}
       {note ? (
-        <span className="term-note" title={term.datatype}>
+        <span className="term-note" data-tooltip={term.datatype}>
           {note}
         </span>
       ) : null}
@@ -91,7 +91,7 @@ const NestedProperties: React.FC<{
   <dl className="resource-properties resource-properties--nested">
     {properties.map((property) => (
       <div className="resource-property" key={property.predicate}>
-        <dt title={property.predicate}>
+        <dt data-tooltip={property.predicate}>
           {property.label ?? localName(property.predicate)}
         </dt>
         <dd>
@@ -125,7 +125,7 @@ const PropertyTable: React.FC<{
       <dl className="resource-properties">
         {properties.map((property) => (
           <div className="resource-property" key={property.predicate}>
-            <dt title={property.predicate}>
+            <dt data-tooltip={property.predicate}>
               {property.label ?? localName(property.predicate)}
               {property.values.length > 1 ? (
                 <span className="explore-count">{property.values.length}</span>
@@ -270,7 +270,7 @@ const ResourceView: React.FC<Props> = ({
               onClick={() => onOpenQuery(resourceQuery(uri || draft.trim()))}
               disabled={!valid}
               aria-label="Open as a query"
-              title="Open the query behind this page"
+              data-tooltip="Open the query behind this page"
             >
               <QueryIcon size={14} />
             </button>
@@ -280,7 +280,7 @@ const ResourceView: React.FC<Props> = ({
               onClick={() => onAddToCanvas(uri || draft.trim())}
               disabled={!valid}
               aria-label="Add to the canvas"
-              title="Add this resource to the Explore canvas"
+              data-tooltip="Add this resource to the Explore canvas"
             >
               <GraphIcon size={14} />
             </button>
@@ -290,7 +290,7 @@ const ResourceView: React.FC<Props> = ({
               onClick={onShare}
               disabled={!valid}
               aria-label="Share this resource"
-              title="Get a link to this resource"
+              data-tooltip="Get a link to this resource"
             >
               <ShareIcon size={14} />
             </button>
@@ -348,7 +348,7 @@ const ResourceView: React.FC<Props> = ({
                         key={type.iri}
                         className="chip"
                         type="button"
-                        title={type.iri}
+                        data-tooltip={type.iri}
                         onClick={() => onUriChange(type.iri)}
                       >
                         {type.label ?? localName(type.iri)}

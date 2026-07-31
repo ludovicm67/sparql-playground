@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { type CanvasDoc } from "../lib/canvas";
+import { useConfirm } from "./ConfirmProvider";
 import { CloseIcon, PlusIcon } from "./icons";
 
 type Props = {
@@ -19,6 +20,7 @@ const CanvasTabs: React.FC<Props> = ({
   onRename,
   onDelete,
 }) => {
+  const confirm = useConfirm();
   const [editingId, setEditingId] = useState<string | undefined>();
   const [draft, setDraft] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -80,7 +82,7 @@ const CanvasTabs: React.FC<Props> = ({
                   type="button"
                   onClick={() => (isActive ? startRename(doc) : onSelect(doc.id))}
                   onDoubleClick={() => startRename(doc)}
-                  title={
+                  data-tooltip={
                     isActive
                       ? "Click again to rename"
                       : `${doc.name} — ${doc.graph.nodes.length} nodes`
@@ -95,15 +97,33 @@ const CanvasTabs: React.FC<Props> = ({
                 className="icon-btn canvas-tab-close"
                 type="button"
                 onClick={() => {
-                  if (
-                    doc.graph.nodes.length === 0 ||
-                    window.confirm(`Delete the canvas “${doc.name}”?`)
-                  ) {
-                    onDelete(doc.id);
-                  }
+                  void (async () => {
+                    // An empty canvas is not worth a confirmation.
+                    if (doc.graph.nodes.length === 0) {
+                      onDelete(doc.id);
+                      return;
+                    }
+
+                    const confirmed = await confirm({
+                      title: "Delete this canvas?",
+                      message: (
+                        <>
+                          <b>{doc.name}</b> and its {doc.graph.nodes.length}{" "}
+                          {doc.graph.nodes.length === 1 ? "node" : "nodes"} will be
+                          removed.
+                        </>
+                      ),
+                      confirmLabel: "Delete",
+                      danger: true,
+                    });
+
+                    if (confirmed) {
+                      onDelete(doc.id);
+                    }
+                  })();
                 }}
                 aria-label={`Delete ${doc.name}`}
-                title="Delete this canvas"
+                data-tooltip="Delete this canvas"
               >
                 <CloseIcon size={11} />
               </button>
@@ -117,7 +137,7 @@ const CanvasTabs: React.FC<Props> = ({
         type="button"
         onClick={onCreate}
         aria-label="New canvas"
-        title="New canvas"
+        data-tooltip="New canvas"
       >
         <PlusIcon size={14} />
       </button>

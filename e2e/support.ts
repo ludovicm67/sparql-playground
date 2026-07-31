@@ -119,3 +119,16 @@ declare global {
     monaco: typeof import("monaco-editor");
   }
 }
+
+/** Answer the app's own confirmation dialog (it no longer uses window.confirm). */
+export const confirmDialog = async (page: Page, accept = true) => {
+  const dialog = page.locator("dialog.dialog--confirm");
+  await expect(dialog).toBeVisible();
+  await dialog
+    .getByRole("button", { name: accept ? /Delete|Clear everything|Confirm/ : /Cancel/ })
+    .click();
+  await expect(dialog).toHaveCount(0);
+};
+
+/** The app's tooltip layer, if one is currently showing. */
+export const tooltip = (page: Page) => page.locator("#app-tooltip");

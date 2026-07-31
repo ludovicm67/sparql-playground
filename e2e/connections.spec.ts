@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
   addMockConnection,
+  confirmDialog,
   lastRequestTo,
   MOCK_URL,
   runQuery,
@@ -163,8 +164,8 @@ test("persists connections and clears them on demand", async ({ page }) => {
   await waitForEditor(page);
   await expect(page.locator(".connection-name")).toHaveCount(2);
 
-  page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Clear all stored data" }).click();
+  await confirmDialog(page);
   await page.waitForTimeout(800);
 
   await expect(page.locator(".connection-name")).toHaveText([
@@ -187,9 +188,9 @@ test("reorders and deletes connections", async ({ page }) => {
     "TBBT (Oxigraph in browser)",
   ]);
 
-  page.once("dialog", (dialog) => dialog.accept());
   await row.hover();
   await row.getByRole("button", { name: /Delete/ }).click();
+  await confirmDialog(page);
   await expect(page.locator(".connection-name")).toHaveText([
     "TBBT (Oxigraph in browser)",
   ]);

@@ -50,7 +50,7 @@ const LiteralInspector: React.FC<Props> = ({ node, onClose }) => {
           {datatype ? (
             <div>
               <dt>Datatype</dt>
-              <dd title={datatype}>{localName(datatype)}</dd>
+              <dd data-tooltip={datatype}>{localName(datatype)}</dd>
             </div>
           ) : null}
         </dl>

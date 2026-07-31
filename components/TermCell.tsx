@@ -89,7 +89,7 @@ const TermCell: React.FC<Props> = ({ term, onOpenResource }) => {
         <button
           className="term term-uri term-link"
           type="button"
-          title={`Open ${term.value}`}
+          data-tooltip={`Open ${term.value}`}
           onClick={() => onOpenResource(term.value)}
         >
           {content}
@@ -98,7 +98,7 @@ const TermCell: React.FC<Props> = ({ term, onOpenResource }) => {
     }
 
     return (
-      <span className="term term-uri" title={term.value}>
+      <span className="term term-uri" data-tooltip={term.value}>
         {content}
       </span>
     );
@@ -110,7 +110,7 @@ const TermCell: React.FC<Props> = ({ term, onOpenResource }) => {
       term.value.length > 12 ? `${term.value.slice(0, 10)}…` : term.value;
 
     return (
-      <span className="term term-bnode" title={`Blank node _:${term.value}`}>
+      <span className="term term-bnode" data-tooltip={`Blank node _:${term.value}`}>
         _:{label}
       </span>
     );
@@ -130,7 +130,7 @@ const TermCell: React.FC<Props> = ({ term, onOpenResource }) => {
     <span className="term term-literal">
       {term.value}
       {note ? (
-        <span className="term-note" title={datatype}>
+        <span className="term-note" data-tooltip={datatype}>
           {note}
         </span>
       ) : null}

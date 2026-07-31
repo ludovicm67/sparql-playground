@@ -2334,3 +2334,111 @@ a {
 .literal-note {
   margin: 0 8px;
 }
+
+/* --------------------------------------------------------------- tooltip */
+
+.tooltip {
+  /* Popover UA styles centre the element; take the positioning back. */
+  position: fixed;
+  inset: auto;
+  z-index: 200;
+  max-width: min(340px, calc(100vw - 24px));
+  margin: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--border-strong, #2f3646);
+  border-radius: var(--radius-sm);
+  background: var(--elevated);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: left;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  animation: tooltip-in 0.12s ease-out;
+}
+
+.tooltip::backdrop {
+  background: none;
+}
+
+@keyframes tooltip-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+}
+
+.tooltip[data-side="bottom"] {
+  animation-name: tooltip-in-below;
+}
+
+@keyframes tooltip-in-below {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tooltip {
+    animation: none;
+  }
+}
+
+/* --------------------------------------------------------------- confirm */
+
+.dialog--confirm {
+  width: min(440px, calc(100vw - 32px));
+}
+
+.confirm-message {
+  display: flex;
+  gap: 11px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.confirm-message b {
+  font-weight: 500;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.confirm-message svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--danger);
+}
+
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border: 1px solid var(--danger-line);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(180deg, #f0716f, #de5b59);
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s, transform 0.05s;
+}
+
+.btn-danger:hover {
+  filter: brightness(1.1);
+}
+
+.btn-danger:active {
+  transform: translateY(1px);
+}
+
+.btn-danger:focus-visible {
+  outline: 2px solid var(--danger);
+  outline-offset: 2px;
+}

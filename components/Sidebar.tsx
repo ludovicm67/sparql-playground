@@ -78,7 +78,7 @@ const Sidebar: React.FC<Props> = ({
           type="button"
           onClick={onCreate}
           aria-label="Add a connection"
-          title="Add a connection"
+          data-tooltip="Add a connection"
         >
           <PlusIcon />
         </button>
@@ -115,7 +115,7 @@ const Sidebar: React.FC<Props> = ({
                     onClick={() => onMove(index, -1)}
                     disabled={index === 0}
                     aria-label={`Move ${connection.name} up`}
-                    title="Move up"
+                    data-tooltip="Move up"
                   >
                     <ChevronUpIcon size={13} />
                   </button>
@@ -125,7 +125,7 @@ const Sidebar: React.FC<Props> = ({
                     onClick={() => onMove(index, 1)}
                     disabled={index === connections.length - 1}
                     aria-label={`Move ${connection.name} down`}
-                    title="Move down"
+                    data-tooltip="Move down"
                   >
                     <ChevronDownIcon size={13} />
                   </button>
@@ -135,7 +135,7 @@ const Sidebar: React.FC<Props> = ({
                     onClick={() => onEdit(connection)}
                     disabled={isLocal(connection)}
                     aria-label={`Edit ${connection.name}`}
-                    title={
+                    data-tooltip={
                       isLocal(connection)
                         ? "The built-in store has nothing to configure"
                         : "Edit"
@@ -149,7 +149,7 @@ const Sidebar: React.FC<Props> = ({
                     onClick={() => onDelete(connection)}
                     disabled={isLocal(connection)}
                     aria-label={`Delete ${connection.name}`}
-                    title={
+                    data-tooltip={
                       isLocal(connection)
                         ? "The built-in store cannot be deleted"
                         : "Delete"
@@ -193,7 +193,7 @@ const Sidebar: React.FC<Props> = ({
                     className="history-main"
                     type="button"
                     onClick={() => onSelectResource(entry)}
-                    title={entry.uri}
+                    data-tooltip={entry.uri}
                   >
                     <span className="history-query">
                       {entry.label ?? localName(entry.uri)}
@@ -213,7 +213,7 @@ const Sidebar: React.FC<Props> = ({
                     type="button"
                     onClick={() => onDeleteResource(entry)}
                     aria-label="Remove from history"
-                    title="Remove from history"
+                    data-tooltip="Remove from history"
                   >
                     <TrashIcon size={13} />
                   </button>
@@ -249,7 +249,7 @@ const Sidebar: React.FC<Props> = ({
                     className="history-main"
                     type="button"
                     onClick={() => onSelectHistoryEntry(entry)}
-                    title={`Load this query into the editor:\n\n${entry.query}`}
+                    data-tooltip={`Load this query into the editor:\n\n${entry.query}`}
                   >
                     <span className="history-query">{summarizeQuery(entry.query)}</span>
                     <span className="history-meta">
@@ -267,7 +267,7 @@ const Sidebar: React.FC<Props> = ({
                     type="button"
                     onClick={() => onDeleteHistoryEntry(entry)}
                     aria-label="Remove from history"
-                    title="Remove from history"
+                    data-tooltip="Remove from history"
                   >
                     <TrashIcon size={13} />
                   </button>
@@ -305,7 +305,7 @@ const Sidebar: React.FC<Props> = ({
             href={COMMIT_URL}
             target="_blank"
             rel="noreferrer"
-            title={`Built from commit ${COMMIT_SHA}${
+            data-tooltip={`Built from commit ${COMMIT_SHA}${
               COMMIT_DIRTY ? " with uncommitted changes" : ""
             }`}
           >

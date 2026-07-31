@@ -82,7 +82,7 @@ const RowList: React.FC<ListProps> = ({
                 type="button"
                 onClick={() => onSelectRow?.(row)}
                 disabled={!onSelectRow}
-                title={row.term.type === "uri" ? row.term.value : row.primary}
+                data-tooltip={row.term.type === "uri" ? row.term.value : row.primary}
               >
                 <span className="explore-row-icon">
                   {row.kind === "class" ? <ChipIcon size={13} /> : <CloudIcon size={13} />}
@@ -102,7 +102,7 @@ const RowList: React.FC<ListProps> = ({
                   type="button"
                   onClick={() => onAdd(row)}
                   aria-label={`Add ${row.primary} to the canvas`}
-                  title="Add to the canvas"
+                  data-tooltip="Add to the canvas"
                 >
                   <PlusIcon size={13} />
                 </button>
@@ -112,7 +112,7 @@ const RowList: React.FC<ListProps> = ({
                     type="button"
                     onClick={row.onDereference}
                     aria-label={`Open ${row.primary} as a resource`}
-                    title="Open as a resource"
+                    data-tooltip="Open as a resource"
                   >
                     <ResourceIcon size={13} />
                   </button>
@@ -123,7 +123,7 @@ const RowList: React.FC<ListProps> = ({
                     type="button"
                     onClick={row.onOpen}
                     aria-label={`Open a query for ${row.primary}`}
-                    title="Open as a query"
+                    data-tooltip="Open as a query"
                   >
                     <QueryIcon size={13} />
                   </button>
@@ -221,7 +221,7 @@ const ExplorePanel: React.FC<Props> = ({
       </div>
 
       {openedClass ? (
-        <div className="explore-context" title={openedClass.iri}>
+        <div className="explore-context" data-tooltip={openedClass.iri}>
           <ChipIcon size={13} />
           <span>{localName(openedClass.iri)}</span>
           {openedClass.count === undefined ? null : (

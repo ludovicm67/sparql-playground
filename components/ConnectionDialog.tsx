@@ -153,7 +153,7 @@ const ConnectionDialog: React.FC<Props> = ({
                   key={method.value}
                   className="segment"
                   type="button"
-                  title={method.hint}
+                  data-tooltip={method.hint}
                   aria-pressed={draft.method === method.value}
                   onClick={() => update({ method: method.value as RequestMethod })}
                 >
@@ -315,7 +315,7 @@ const ConnectionDialog: React.FC<Props> = ({
             type="button"
             onClick={runProbe}
             disabled={!endpointIsValid || probing}
-            title={`Runs "${PROBE_QUERY}" against the endpoint`}
+            data-tooltip={`Runs "${PROBE_QUERY}" against the endpoint`}
           >
             {probing ? <SpinnerIcon /> : null}
             {probing ? "Testing…" : "Try connection"}

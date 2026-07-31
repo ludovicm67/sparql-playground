@@ -188,6 +188,16 @@ connection, its canvases, and the query in the editor.
 Navigation uses the query string (`?mode=explore`); share links use the
 fragment (`#s=…`), so the two never collide.
 
+## Interface details
+
+Tooltips and confirmations are the app's own, not the browser's. Any element
+carrying `data-tooltip` gets one from a single delegated layer
+([components/Tooltips.tsx](components/Tooltips.tsx)); it appears after a short
+hover, immediately on keyboard focus, never on touch, and — being a popover — it
+renders above modal dialogs. Destructive actions ask through
+[components/ConfirmProvider.tsx](components/ConfirmProvider.tsx), a
+promise-shaped stand-in for `window.confirm`.
+
 ## Tests
 
 ```sh
