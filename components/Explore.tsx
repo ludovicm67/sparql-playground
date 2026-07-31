@@ -418,25 +418,27 @@ const Explore: React.FC<Props> = ({
 
   const selected = selectedId ? findNode(graph, selectedId) : undefined;
 
+  // Depend on *what* is selected, not on the node object: moving a node
+  // rebuilds it on every pointer event, and a loader whose identity changes
+  // that often would re-query the endpoint for each frame of a drag.
+  const selectedIri = selected?.term.type === "uri" ? selected.term.value : undefined;
+  const selectedKind = selected?.kind;
+
   const inspectorPredicates = useCallback(async () => {
-    if (!selected || selected.term.type !== "uri") {
+    if (!selectedIri || !selectedKind) {
       return [];
     }
-    return loadPredicates({ kind: selected.kind, iri: selected.term.value });
-  }, [selected, loadPredicates]);
+    return loadPredicates({ kind: selectedKind, iri: selectedIri });
+  }, [selectedIri, selectedKind, loadPredicates]);
 
   const inspectorObjects = useCallback(
     async (predicate: string, offset: number) => {
-      if (!selected || selected.term.type !== "uri" || !predicate) {
+      if (!selectedIri || !selectedKind || !predicate) {
         return [];
       }
-      return loadObjects(
-        { kind: selected.kind, iri: selected.term.value },
-        predicate,
-        offset
-      );
+      return loadObjects({ kind: selectedKind, iri: selectedIri }, predicate, offset);
     },
-    [selected, loadObjects]
+    [selectedIri, selectedKind, loadObjects]
   );
 
   return (

@@ -132,3 +132,6 @@ export const confirmDialog = async (page: Page, accept = true) => {
 
 /** The app's tooltip layer, if one is currently showing. */
 export const tooltip = (page: Page) => page.locator("#app-tooltip");
+
+/** How many requests the mock has served so far. */
+export const mockRequestCount = async () => (await mockLog()).length;

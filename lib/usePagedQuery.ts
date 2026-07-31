@@ -28,6 +28,15 @@ export const usePagedQuery = <T,>(
   const busy = useRef(false);
   const known = useRef(0);
 
+  // Held in a ref rather than depended on: callers rebuild this closure freely
+  // (a canvas drag rebuilds it every pointer event), and re-running the fetch
+  // for each new identity would hammer the endpoint. Switching sources is done
+  // by remounting with a new `key`, per the note above.
+  const loadRef = useRef(load);
+  useEffect(() => {
+    loadRef.current = load;
+  }, [load]);
+
   useEffect(() => {
     let active = true;
     busy.current = true;
@@ -36,7 +45,7 @@ export const usePagedQuery = <T,>(
     // cascade a synchronous re-render.
     void (async () => {
       try {
-        const page = await load(0);
+        const page = await loadRef.current(0);
         if (!active) {
           return;
         }
@@ -61,7 +70,8 @@ export const usePagedQuery = <T,>(
     return () => {
       active = false;
     };
-  }, [load, pageSize]);
+    // Mount only: see `loadRef` above.
+  }, [pageSize]);
 
   const loadMore = useCallback(() => {
     if (busy.current || exhausted || loading) {
@@ -74,7 +84,7 @@ export const usePagedQuery = <T,>(
     void (async () => {
       const offset = known.current;
       try {
-        const page = await load(offset);
+        const page = await loadRef.current(offset);
         known.current += page.length;
         setItems((current) => [...current, ...page]);
         setExhausted(page.length < pageSize);
@@ -86,7 +96,7 @@ export const usePagedQuery = <T,>(
         setLoading(false);
       }
     })();
-  }, [exhausted, loading, load, pageSize]);
+  }, [exhausted, loading, pageSize]);
 
   return { items, loading, error, exhausted, loadMore };
 };

@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
   addMockConnection,
+  mockRequestCount,
   addRowToCanvas,
   canvasStatus,
   edgeLabels,
@@ -356,4 +357,59 @@ test("explains a literal node rather than doing nothing", async ({ page }) => {
   await literal.click();
   await expect(page.locator(".literal-value")).toHaveText("theoretical physicist");
   await expect(page.locator(".literal-note")).toContainText("no IRI to dereference");
+});
+
+test("dragging a node does not re-query the endpoint", async ({ page }) => {
+  await switchMode(page, "Query");
+  await addMockConnection(page, { name: "Triangle", path: "/triangle" });
+  await switchMode(page, "Explore");
+  await page.waitForSelector(".explore-panel .explore-row", { timeout: 30_000 });
+  await openFirstClass(page);
+  await addRowToCanvas(page, "Alpha");
+
+  // Select it so the inspector — the thing that issues the queries — is open.
+  await page.locator(".node").first().click();
+  await expect(page.locator(".inspector .explore-row-primary").first()).toBeVisible();
+  await page.waitForTimeout(800);
+
+  const before = await mockRequestCount();
+
+  const box = (await page.locator(".node").first().boundingBox())!;
+  await page.mouse.move(box.x + 60, box.y + 20);
+  await page.mouse.down();
+  // Many small steps: this is what a real drag looks like, and each one used to
+  // rebuild the inspector's loader and fire a fresh predicates query.
+  await page.mouse.move(box.x + 260, box.y + 160, { steps: 40 });
+  await page.mouse.up();
+  await page.waitForTimeout(1200);
+
+  const during = (await mockRequestCount()) - before;
+  expect(during, `the drag issued ${during} requests`).toBe(0);
+
+  // The node really did move, and the inspector is still usable afterwards.
+  const after = (await page.locator(".node").first().boundingBox())!;
+  expect(Math.round(after.x - box.x)).toBe(200);
+  await expect(page.locator(".inspector .explore-row-primary").first()).toBeVisible();
+});
+
+test("panning and zooming the canvas queries nothing either", async ({ page }) => {
+  await switchMode(page, "Query");
+  await addMockConnection(page, { name: "Triangle", path: "/triangle" });
+  await switchMode(page, "Explore");
+  await page.waitForSelector(".explore-panel .explore-row", { timeout: 30_000 });
+  await openFirstClass(page);
+  await addRowToCanvas(page, "Alpha");
+  await page.waitForTimeout(800);
+
+  const before = await mockRequestCount();
+  const canvas = (await page.locator(".canvas").boundingBox())!;
+
+  await page.mouse.move(canvas.x + 600, canvas.y + 500);
+  await page.mouse.down();
+  await page.mouse.move(canvas.x + 400, canvas.y + 350, { steps: 25 });
+  await page.mouse.up();
+  await page.mouse.wheel(0, -240);
+  await page.waitForTimeout(1000);
+
+  expect((await mockRequestCount()) - before).toBe(0);
 });
