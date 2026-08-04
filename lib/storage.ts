@@ -5,6 +5,7 @@ export const STORAGE_KEYS = {
   canvas: "sparql-playground:canvas",
   resources: "sparql-playground:resources",
   draft: "sparql-playground:draft",
+  theme: "sparql-playground:theme",
 } as const;
 
 export const readJson = <T>(key: string, fallback: T): T => {
@@ -35,15 +36,23 @@ export const writeJson = (key: string, value: unknown) => {
   }
 };
 
+/**
+ * Keys that survive "Clear all stored data". The theme is a display
+ * preference rather than something the user put here, and the confirmation
+ * promises to remove connections, history and canvases — so throwing the
+ * interface back to the system scheme would be a surprise nobody agreed to.
+ */
+const KEPT_ON_CLEAR: readonly string[] = [STORAGE_KEYS.theme];
+
 export const clearStoredData = () => {
   if (typeof window === "undefined") {
     return;
   }
 
   try {
-    Object.values(STORAGE_KEYS).forEach((key) =>
-      window.localStorage.removeItem(key)
-    );
+    Object.values(STORAGE_KEYS)
+      .filter((key) => !KEPT_ON_CLEAR.includes(key))
+      .forEach((key) => window.localStorage.removeItem(key));
   } catch {
     // Nothing sensible to do if storage refuses to cooperate.
   }

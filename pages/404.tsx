@@ -8,6 +8,7 @@ const NotFound: NextPage = () => (
     <Head>
       <title>Not found · SPARQL Playground</title>
       <meta name="robots" content="noindex" />
+      {/* Kept in step with the resolved background by `syncThemeColor`. */}
       <meta name="theme-color" content="#0a0c11" />
       <link rel="icon" href="/icon.svg" type="image/svg+xml" />
       <link rel="alternate icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />

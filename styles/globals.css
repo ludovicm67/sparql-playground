@@ -1,34 +1,81 @@
 /* ---------------------------------------------------------------- tokens */
 
+/*
+ * Every colour is declared once, as a light/dark pair. `color-scheme` decides
+ * which half of each `light-dark()` applies, so switching theme is a matter of
+ * setting that one property — and it teaches the browser to match its own
+ * scrollbars, form controls and caret at the same time.
+ *
+ * The default follows the system. `data-theme` on <html> overrides it, and is
+ * set before first paint by the inline script in `pages/_document.tsx`.
+ */
 :root {
-  color-scheme: dark;
+  color-scheme: light dark;
 
-  --bg: #0a0c11;
-  --panel: #11141b;
-  --panel-header: #151923;
-  --elevated: #1a1f2b;
+  --bg: light-dark(#f4f6fb, #0a0c11);
+  --panel: light-dark(#ffffff, #11141b);
+  --panel-header: light-dark(#fafbfe, #151923);
+  --elevated: light-dark(#eef1f8, #1a1f2b);
 
-  --border: #232a38;
-  --border-soft: #1b212c;
+  --border: light-dark(#dde1ec, #232a38);
+  --border-soft: light-dark(#e9ecf4, #1b212c);
+  --border-strong: light-dark(#c3c9da, #2f3646);
 
-  --text: #e8ebf2;
-  --text-muted: #98a2b8;
-  --text-faint: #667085;
+  --text: light-dark(#151922, #e8ebf2);
+  --text-muted: light-dark(#4d566b, #98a2b8);
+  --text-faint: light-dark(#6b7488, #667085);
+  /* Two steps quieter again: metadata under a row, hints under a field. */
+  --text-dim: light-dark(#878fa3, #55607a);
+  --text-ghost: light-dark(#a4abbd, #4a5266);
 
-  --accent: #8b7cf6;
-  --accent-bright: #a394ff;
-  --accent-soft: rgba(139, 124, 246, 0.14);
-  --accent-line: rgba(139, 124, 246, 0.38);
+  --accent: light-dark(#6a4fe3, #8b7cf6);
+  --accent-bright: light-dark(#5a3ddb, #a394ff);
+  --accent-soft: light-dark(rgba(106, 79, 227, 0.1), rgba(139, 124, 246, 0.14));
+  --accent-line: light-dark(rgba(106, 79, 227, 0.34), rgba(139, 124, 246, 0.38));
+  --accent-strong: light-dark(rgba(106, 79, 227, 0.55), rgba(139, 124, 246, 0.5));
 
-  --uri: #7cc4fa;
-  --literal: #f7c66b;
-  --bnode: #c9a2f7;
-  --var: #5fd8c4;
+  /* Term colours carry meaning, so they keep their hue and only trade
+     brightness for the contrast each background needs. */
+  --uri: light-dark(#1668b5, #7cc4fa);
+  --literal: light-dark(#8a5a0b, #f7c66b);
+  --literal-line: light-dark(rgba(138, 90, 11, 0.35), rgba(247, 198, 107, 0.4));
+  --bnode: light-dark(#7b3fbe, #c9a2f7);
+  --var: light-dark(#0d7a67, #5fd8c4);
 
-  --danger: #f87171;
-  --danger-soft: rgba(248, 113, 113, 0.09);
-  --danger-line: rgba(248, 113, 113, 0.32);
-  --success: #4ade80;
+  --danger: light-dark(#cc3b3b, #f87171);
+  --danger-soft: light-dark(rgba(204, 59, 59, 0.08), rgba(248, 113, 113, 0.09));
+  --danger-line: light-dark(rgba(204, 59, 59, 0.3), rgba(248, 113, 113, 0.32));
+  --danger-text: light-dark(#a52f2f, #f3c0c0);
+
+  --success: light-dark(#12864a, #4ade80);
+  --success-soft: light-dark(rgba(18, 134, 74, 0.08), rgba(74, 222, 128, 0.07));
+  --success-line: light-dark(rgba(18, 134, 74, 0.32), rgba(74, 222, 128, 0.3));
+
+  --warning: light-dark(#8a6212, #d9b382);
+  --warning-soft: light-dark(rgba(138, 98, 18, 0.09), rgba(217, 179, 130, 0.1));
+  --warning-line: light-dark(rgba(138, 98, 18, 0.3), rgba(217, 179, 130, 0.32));
+
+  /* Washes laid over whatever is beneath them, so they invert with the theme. */
+  --hover-wash: light-dark(rgba(21, 25, 34, 0.05), rgba(255, 255, 255, 0.06));
+  --row-wash: light-dark(rgba(21, 25, 34, 0.028), rgba(255, 255, 255, 0.026));
+  --shadow-sm: light-dark(rgba(24, 32, 54, 0.1), rgba(0, 0, 0, 0.35));
+  --shadow-lg: light-dark(rgba(24, 32, 54, 0.16), rgba(0, 0, 0, 0.45));
+  --overlay: light-dark(rgba(28, 34, 50, 0.34), rgba(4, 5, 9, 0.6));
+  --scrim: light-dark(rgba(28, 34, 50, 0.42), rgba(5, 6, 10, 0.66));
+
+  --scrollbar-thumb: light-dark(#cdd3e1, #2a3140);
+  --scrollbar-thumb-hover: light-dark(#b4bccd, #3b4356);
+  --icon-empty: light-dark(#ccd2e0, #2f3646);
+
+  /* Canvas: the dotted paper, and the edges drawn over it. */
+  --canvas-dot: light-dark(#dbe0ed, #1d2432);
+  --edge: light-dark(#aeb6c9, #39415a);
+  --edge-label: light-dark(#6b7488, #6b7488);
+  --node-class-bg: light-dark(#f0edff, #1e1d33);
+  --node-literal-bg: light-dark(#fdf5e6, #2a2418);
+  --row-active-bg: light-dark(#e9e6fb, #262740);
+
+  --heart: light-dark(#d6486a, #e0687f);
 
   --radius: 12px;
   --radius-sm: 7px;
@@ -41,6 +88,15 @@
     Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
     "Liberation Mono", monospace;
+}
+
+/* An explicit choice pins the scheme; without one the system decides. */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 * {
@@ -171,14 +227,21 @@ a {
   white-space: nowrap;
 }
 
+/* Used on both the repository link and the theme button, so it has to undo the
+   chrome a bare <button> arrives with. */
 .header-link {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 32px;
   height: 32px;
+  padding: 0;
+  border: none;
+  background: none;
   border-radius: var(--radius-sm);
   color: var(--text-faint);
+  font: inherit;
+  cursor: pointer;
   transition: color 0.15s, background-color 0.15s;
 }
 
@@ -483,7 +546,7 @@ a {
 .explore-row-secondary {
   font-family: var(--mono);
   font-size: 10.5px;
-  color: #55607a;
+  color: var(--text-dim);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -575,7 +638,7 @@ a {
   border: 1px solid var(--danger-line);
   border-radius: var(--radius-sm);
   background: var(--danger-soft);
-  color: #f3c0c0;
+  color: var(--danger-text);
   font-family: var(--mono);
   line-height: 1.5;
   overflow-wrap: anywhere;
@@ -708,7 +771,7 @@ a {
   cursor: grab;
   touch-action: none;
   background-color: var(--panel);
-  background-image: radial-gradient(circle at 1px 1px, #1d2432 1px, transparent 0);
+  background-image: radial-gradient(circle at 1px 1px, var(--canvas-dot) 1px, transparent 0);
   background-size: 22px 22px;
 }
 
@@ -745,13 +808,13 @@ a {
 }
 
 .edge path {
-  stroke: #39415a;
+  stroke: var(--edge);
   stroke-width: 1.6;
-  color: #39415a;
+  color: var(--edge);
 }
 
 .edge text {
-  fill: #6b7488;
+  fill: var(--edge-label);
   font-family: var(--mono);
   font-size: 10px;
   paint-order: stroke;
@@ -776,12 +839,12 @@ a {
   gap: 8px;
   height: 46px;
   padding: 0 10px 0 11px;
-  border: 1px solid var(--border-strong, #2f3646);
+  border: 1px solid var(--border-strong);
   border-radius: 9px;
   background: var(--elevated);
   cursor: grab;
   user-select: none;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 4px 14px var(--shadow-sm);
 }
 
 .node:active {
@@ -789,20 +852,20 @@ a {
 }
 
 .node.is-class {
-  border-color: rgba(139, 124, 246, 0.5);
-  background: #1e1d33;
+  border-color: var(--accent-strong);
+  background: var(--node-class-bg);
 }
 
 .node.is-literal {
-  border-color: rgba(247, 198, 107, 0.4);
-  background: #2a2418;
+  border-color: var(--literal-line);
+  background: var(--node-literal-bg);
 }
 
 .node.is-selected {
   border-color: var(--accent-bright);
   box-shadow:
     0 0 0 2px var(--accent-soft),
-    0 4px 16px rgba(0, 0, 0, 0.45);
+    0 4px 16px var(--shadow-lg);
 }
 
 .node-icon {
@@ -862,7 +925,7 @@ a {
   border: none;
   border-radius: 4px;
   background: none;
-  color: #55607a;
+  color: var(--text-dim);
   cursor: pointer;
   transition: color 0.15s, background-color 0.15s;
 }
@@ -908,7 +971,7 @@ a {
   width: min(340px, 88%);
   background: var(--panel);
   border-left: 1px solid var(--border);
-  box-shadow: -12px 0 28px rgba(0, 0, 0, 0.35);
+  box-shadow: -12px 0 28px var(--shadow-sm);
 }
 
 .inspector-predicate {
@@ -977,7 +1040,7 @@ a {
     position: absolute;
     z-index: 29;
     inset: 60px 0 0;
-    background: rgba(4, 5, 9, 0.6);
+    background: var(--overlay);
     cursor: pointer;
   }
 }
@@ -1059,7 +1122,7 @@ a {
   margin: 6px 0 0;
   font-size: 11px;
   line-height: 1.45;
-  color: #55607a;
+  color: var(--text-dim);
 }
 
 .connection-list,
@@ -1104,7 +1167,7 @@ a {
 .connection.is-active {
   background: var(--accent-soft);
   border-color: var(--accent-line);
-  --row-bg: #262740;
+  --row-bg: var(--row-active-bg);
 }
 
 .connection-main,
@@ -1156,7 +1219,7 @@ a {
 .connection-detail {
   font-family: var(--mono);
   font-size: 10.5px;
-  color: #55607a;
+  color: var(--text-dim);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1221,11 +1284,11 @@ a {
   display: flex;
   gap: 5px;
   font-size: 10.5px;
-  color: #55607a;
+  color: var(--text-dim);
 }
 
 .history.is-error .history-query {
-  color: #d99;
+  color: var(--danger-text);
 }
 
 .history > .icon-btn {
@@ -1320,7 +1383,7 @@ a {
 
 .btn-secondary:hover:not(:disabled) {
   color: var(--text);
-  border-color: var(--border-strong, #2f3646);
+  border-color: var(--border-strong);
 }
 
 .btn-ghost {
@@ -1381,7 +1444,7 @@ a {
 
 .icon-btn:hover:not(:disabled) {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--hover-wash);
 }
 
 .icon-btn.is-danger:hover:not(:disabled) {
@@ -1438,13 +1501,13 @@ a {
   font-weight: 400;
   letter-spacing: 0;
   text-transform: none;
-  color: #55607a;
+  color: var(--text-dim);
 }
 
 .field-hint {
   font-size: 11.5px;
   line-height: 1.45;
-  color: #55607a;
+  color: var(--text-dim);
 }
 
 .field-error {
@@ -1458,7 +1521,7 @@ a {
   gap: 7px;
   font-size: 11.5px;
   line-height: 1.5;
-  color: #d9b382;
+  color: var(--warning);
 }
 
 .field-warning svg {
@@ -1490,7 +1553,7 @@ a {
 }
 
 .input::placeholder {
-  color: #4a5266;
+  color: var(--text-ghost);
 }
 
 .input:focus {
@@ -1564,12 +1627,12 @@ a {
 }
 
 .notice.is-warning {
-  background: rgba(217, 179, 130, 0.1);
-  border-bottom-color: rgba(217, 179, 130, 0.32);
+  background: var(--warning-soft);
+  border-bottom-color: var(--warning-line);
 }
 
 .notice.is-warning svg {
-  color: #d9b382;
+  color: var(--warning);
 }
 
 .notice-text {
@@ -1600,7 +1663,7 @@ a {
 }
 
 .dialog::backdrop {
-  background: rgba(5, 6, 10, 0.66);
+  background: var(--scrim);
 }
 
 .dialog-form {
@@ -1665,8 +1728,8 @@ a {
 }
 
 .probe.is-ok {
-  border-color: rgba(74, 222, 128, 0.3);
-  background: rgba(74, 222, 128, 0.07);
+  border-color: var(--success-line);
+  background: var(--success-soft);
 }
 
 .probe.is-ok svg {
@@ -1823,7 +1886,7 @@ a {
   text-align: right;
   font-family: var(--mono);
   font-size: 11px;
-  color: #3f4759;
+  color: var(--text-ghost);
   user-select: none;
 }
 
@@ -1838,11 +1901,11 @@ a {
 }
 
 .results-table tbody tr:hover td {
-  background: rgba(255, 255, 255, 0.026);
+  background: var(--row-wash);
 }
 
 .results-table td.is-unbound {
-  color: #3f4759;
+  color: var(--text-ghost);
   font-style: italic;
 }
 
@@ -1857,7 +1920,7 @@ a {
 }
 
 .term-ns {
-  color: #55607a;
+  color: var(--text-dim);
 }
 
 .term-uri .term-local {
@@ -1874,7 +1937,7 @@ a {
 
 .term-note {
   margin-left: 3px;
-  color: #55607a;
+  color: var(--text-dim);
 }
 
 /* ---------------------------------------------------------------- states */
@@ -1893,7 +1956,7 @@ a {
 }
 
 .state svg {
-  color: #2f3646;
+  color: var(--icon-empty);
 }
 
 .state-title {
@@ -1944,7 +2007,7 @@ a {
   font-family: var(--mono);
   font-size: 12.5px;
   line-height: 1.55;
-  color: #f3c0c0;
+  color: var(--danger-text);
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
@@ -1976,8 +2039,8 @@ a {
 
 .boolean-value[data-value="true"] {
   color: var(--success);
-  border-color: rgba(74, 222, 128, 0.3);
-  background: rgba(74, 222, 128, 0.08);
+  border-color: var(--success-line);
+  background: var(--success-soft);
 }
 
 .boolean-value[data-value="false"] {
@@ -2042,12 +2105,12 @@ a {
   border: 3px solid transparent;
   border-radius: 999px;
   background-clip: content-box;
-  background-color: #2a3140;
+  background-color: var(--scrollbar-thumb);
 }
 
 .panel-body::-webkit-scrollbar-thumb:hover,
 .examples::-webkit-scrollbar-thumb:hover {
-  background-color: #3b4356;
+  background-color: var(--scrollbar-thumb-hover);
 }
 
 /* -------------------------------------------------------------- resource */
@@ -2160,7 +2223,7 @@ a {
 .resource-section-hint {
   margin: 0 0 12px;
   font-size: 12px;
-  color: #55607a;
+  color: var(--text-dim);
 }
 
 .resource-properties {
@@ -2230,7 +2293,7 @@ a {
 .resource-link-iri {
   font-family: var(--mono);
   font-size: 10.5px;
-  color: #55607a;
+  color: var(--text-dim);
   overflow-wrap: anywhere;
 }
 
@@ -2320,7 +2383,7 @@ a {
   align-items: center;
   gap: 5px;
   font-family: var(--mono);
-  color: #4a5266;
+  color: var(--text-ghost);
   transition: color 0.15s;
 }
 
@@ -2329,13 +2392,13 @@ a {
 }
 
 .sidebar-build-dirty {
-  color: #d9b382;
+  color: var(--warning);
 }
 
 .sidebar-credit {
   margin: 8px 0 0;
   font-size: 11px;
-  color: #55607a;
+  color: var(--text-dim);
 }
 
 .sidebar-credit a {
@@ -2350,13 +2413,13 @@ a {
 }
 
 .sidebar-heart {
-  color: #e0687f;
+  color: var(--heart);
 }
 
 .sidebar-build-label {
   margin-right: 6px;
   font-family: var(--sans);
-  color: #4a5266;
+  color: var(--text-ghost);
 }
 
 /* A blank node's statements, shown inline where the node itself would be. */
@@ -2439,7 +2502,7 @@ a {
   max-width: min(340px, calc(100vw - 24px));
   margin: 0;
   padding: 7px 10px;
-  border: 1px solid var(--border-strong, #2f3646);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   background: var(--elevated);
   color: var(--text);
@@ -2449,7 +2512,7 @@ a {
   text-align: left;
   overflow-wrap: anywhere;
   white-space: pre-line;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 8px 22px var(--shadow-lg);
   pointer-events: none;
   animation: tooltip-in 0.12s ease-out;
 }

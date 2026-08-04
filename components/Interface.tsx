@@ -5,11 +5,12 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import Editor, { type OnMount } from "@monaco-editor/react";
 import { StoreContext } from "./StoreProvider";
 import { type QueryResult, type ResultKind, summarizeResult } from "../lib/results";
-import { defineEditorTheme, EDITOR_THEME } from "../lib/monaco";
+import { defineEditorTheme, editorThemeFor } from "../lib/monaco";
 import {
   attachDiagnostics,
   configureBackend,
@@ -56,6 +57,18 @@ import {
   type SharedNotice,
 } from "../lib/share";
 import { clearStoredData } from "../lib/storage";
+import {
+  applyTheme,
+  loadTheme,
+  nextTheme,
+  resolveTheme,
+  saveTheme,
+  subscribeSystemTheme,
+  syncThemeColor,
+  systemPrefersDark,
+  themeLabel,
+  type Theme,
+} from "../lib/theme";
 import { loadDraft, saveDraft } from "../lib/drafts";
 import { DEFAULT_NAV, type Mode, readNav, syncNav } from "../lib/navigation";
 import { useConfirm } from "./ConfirmProvider";
@@ -71,10 +84,13 @@ import {
   CloseIcon,
   FormatIcon,
   GraphIcon,
+  MoonIcon,
   ResourceIcon,
   ShareIcon,
   SidebarIcon,
   SpinnerIcon,
+  SunIcon,
+  SystemThemeIcon,
 } from "./icons";
 
 const REPOSITORY = "https://github.com/ludovicm67/sparql-playground";
@@ -196,6 +212,16 @@ const Interface = () => {
     () => typeof window === "undefined" || window.innerWidth > 760
   );
 
+  const [theme, setTheme] = useState<Theme>(loadTheme);
+  // The OS preference lives outside React and changes on its own, so it is
+  // subscribed to rather than copied into state.
+  const systemIsDark = useSyncExternalStore(
+    subscribeSystemTheme,
+    systemPrefersDark,
+    () => false
+  );
+  const resolved = resolveTheme(theme, systemIsDark);
+
   const shortcut = useMemo(
     () =>
       typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent)
@@ -213,6 +239,14 @@ const Interface = () => {
     const timer = setInterval(() => setNow(Date.now()), RELATIVE_TIME_REFRESH_MS);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    saveTheme(theme);
+    applyTheme(theme);
+  }, [theme]);
+
+  // The stylesheet follows the OS by itself; the browser chrome needs telling.
+  useEffect(() => syncThemeColor(), [resolved]);
 
   // A consumed link should not be reapplied on refresh, and leaving a fragment
   // with credentials in the address bar would be careless.
@@ -605,6 +639,23 @@ const Interface = () => {
               <b className="pill-name">{activeConnection.name}</b>
             )}
           </span>
+          <button
+            className="header-link"
+            type="button"
+            onClick={() => setTheme(nextTheme(theme))}
+            aria-label={`${themeLabel(theme)}. Change the theme`}
+            data-tooltip={`${themeLabel(theme)} — click for ${themeLabel(
+              nextTheme(theme)
+            ).toLowerCase()}`}
+          >
+            {theme === "system" ? (
+              <SystemThemeIcon size={17} />
+            ) : theme === "light" ? (
+              <SunIcon size={17} />
+            ) : (
+              <MoonIcon size={17} />
+            )}
+          </button>
           <a
             className="header-link"
             href={REPOSITORY}
@@ -827,7 +878,7 @@ const Interface = () => {
                 value={query}
                 defaultLanguage="sparql"
                 language="sparql"
-                theme={EDITOR_THEME}
+                theme={editorThemeFor(resolved)}
                 beforeMount={defineEditorTheme}
                 onMount={handleEditorMount}
                 onChange={(value) => {
@@ -937,7 +988,11 @@ const Interface = () => {
                   </p>
                 </div>
               ) : (
-                <Results results={results} onOpenResource={openResource} />
+                <Results
+                  results={results}
+                  theme={resolved}
+                  onOpenResource={openResource}
+                />
               )}
             </div>
           </section>

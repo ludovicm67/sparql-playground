@@ -1,10 +1,13 @@
 import Editor from "@monaco-editor/react";
 import { type QueryResult } from "../lib/results";
-import { defineEditorTheme, EDITOR_THEME } from "../lib/monaco";
+import type { ResolvedTheme } from "../lib/theme";
+import { defineEditorTheme, editorThemeFor } from "../lib/monaco";
 import TermCell from "./TermCell";
 
 type Props = {
   results: QueryResult;
+  /** Passed down so the graph editor matches the rest of the interface. */
+  theme: ResolvedTheme;
   onOpenResource?: (iri: string) => void;
 };
 
@@ -26,14 +29,14 @@ const EmptyResult = () => (
   </div>
 );
 
-const Results: React.FC<Props> = ({ results, onOpenResource }) => {
+const Results: React.FC<Props> = ({ results, theme, onOpenResource }) => {
   // CONSTRUCT / DESCRIBE hand back a serialized graph rather than bindings.
   if (typeof results === "string") {
     return (
       <Editor
         height="100%"
         value={results}
-        theme={EDITOR_THEME}
+        theme={editorThemeFor(theme)}
         beforeMount={defineEditorTheme}
         options={{
           scrollBeyondLastLine: false,

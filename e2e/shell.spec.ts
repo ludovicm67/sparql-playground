@@ -290,9 +290,17 @@ test("keeps the whole header on screen on a small phone", async ({ page }) => {
   const overflow = await header.evaluate((el) => el.scrollWidth - el.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 
+  // Every control, not just the last one: the theme button and the repository
+  // link both have to stay reachable.
   const width = (await header.boundingBox())!.width;
-  const link = await page.locator(".header-link").boundingBox();
-  expect(link!.x + link!.width).toBeLessThanOrEqual(width);
+  const spilling = await page.locator(".app-header button, .app-header a").evaluateAll(
+    (nodes, limit) =>
+      nodes
+        .map((node) => node.getBoundingClientRect())
+        .filter((rect) => rect.right > limit || rect.left < 0).length,
+    width
+  );
+  expect(spilling).toBe(0);
 
   // The labels go, but the buttons keep their names.
   await expect(page.locator(".segment-label").first()).toBeHidden();
