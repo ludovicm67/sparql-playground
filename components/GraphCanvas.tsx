@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { displayTerm, localName, type NodeKind, type TermRef } from "../lib/explore";
 import { type Graph, type GraphNode } from "../lib/graph";
+import { dotGrid } from "../lib/layout";
 import { ChipIcon, CloseIcon, CloudIcon, ResourceIcon } from "./icons";
 
 export type Viewport = { x: number; y: number; scale: number };
@@ -187,10 +188,19 @@ const GraphCanvas: React.FC<Props> = ({
     }
   };
 
+  const grid = dotGrid(viewport);
+
   return (
     <div
       ref={surfaceRef}
       className={`canvas${dragOver ? " is-drop-target" : ""}`}
+      style={
+        {
+          "--dot-gap": `${grid.gap}px`,
+          "--dot-radius": `${grid.radius}px`,
+          backgroundPosition: `${grid.offsetX}px ${grid.offsetY}px`,
+        } as React.CSSProperties
+      }
       onPointerDown={handleSurfacePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={endDrag}

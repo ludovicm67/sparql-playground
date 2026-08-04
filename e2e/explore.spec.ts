@@ -421,3 +421,48 @@ test("panning and zooming the canvas queries nothing either", async ({ page }) =
     `panning and zooming issued ${watch.count()} requests: ${watch.urls().slice(0, 3).join(", ")}`
   ).toBe(0);
 });
+
+test("the dotted paper travels with the canvas", async ({ page }) => {
+  await switchMode(page, "Explore");
+  await openFirstClass(page);
+  await addRowToCanvas(page, "sheldon-cooper");
+
+  const paper = () =>
+    page.locator(".canvas").evaluate((el) => {
+      const style = getComputedStyle(el);
+      return { position: style.backgroundPosition, size: style.backgroundSize };
+    });
+  const nodeX = async () => (await page.locator(".node").first().boundingBox())!.x;
+
+  const before = await paper();
+  const beforeX = await nodeX();
+
+  // Pan from an empty corner, well away from the node.
+  const canvas = (await page.locator(".canvas").boundingBox())!;
+  const fromX = canvas.x + 80;
+  const fromY = canvas.y + canvas.height - 100;
+  await page.mouse.move(fromX, fromY);
+  await page.mouse.down();
+  await page.mouse.move(fromX - 130, fromY - 70, { steps: 15 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+
+  const after = await paper();
+  // The grid shifted by exactly what the node did: dots and nodes move as one.
+  expect(parseFloat(after.position) - parseFloat(before.position)).toBeCloseTo(
+    (await nodeX()) - beforeX,
+    0
+  );
+  expect(after.size).toBe(before.size);
+
+  // And zooming resizes the tile rather than leaving it at 1:1.
+  await page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height / 2);
+  for (let step = 0; step < 5; step++) {
+    await page.mouse.wheel(0, -120);
+    await page.waitForTimeout(80);
+  }
+  await page.waitForTimeout(300);
+
+  const zoomed = await paper();
+  expect(parseFloat(zoomed.size)).toBeGreaterThan(parseFloat(after.size));
+});

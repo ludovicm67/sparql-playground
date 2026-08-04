@@ -205,3 +205,32 @@ export const fitViewport = (
     y: surface.height / 2 - ((minY + maxY) / 2) * scale,
   };
 };
+
+/** Spacing of the dotted paper at 1:1, matching `--dot-gap` in the stylesheet. */
+const DOT_GAP = 22;
+/** Below this the dots read as noise rather than as a grid. */
+const MIN_DOT_GAP = 13;
+
+/**
+ * The background grid as it should look at a given zoom.
+ *
+ * The dots cannot simply ride the world transform — they are painted on the
+ * surface so they cover it entirely — so the tile is sized and offset to match
+ * instead. Zooming out doubles the spacing rather than letting it collapse into
+ * a wash, which keeps the dots on the same lattice while thinning them out.
+ */
+export const dotGrid = ({ x, y, scale }: { x: number; y: number; scale: number }) => {
+  let gap = DOT_GAP * scale;
+  while (gap < MIN_DOT_GAP) {
+    gap *= 2;
+  }
+
+  return {
+    gap,
+    radius: Math.min(1.6, Math.max(0.6, scale)),
+    // The lattice starts where the world origin sits on screen, so the dots
+    // travel with the nodes rather than sliding underneath them.
+    offsetX: x,
+    offsetY: y,
+  };
+};

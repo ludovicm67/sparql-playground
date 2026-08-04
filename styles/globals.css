@@ -764,15 +764,27 @@ a {
   position: relative;
 }
 
+/*
+ * The dotted paper is drawn here rather than inside `.canvas-world`, so that it
+ * can tile across the whole surface instead of only the area the nodes happen
+ * to occupy. That means it does not inherit the world transform, so the three
+ * values below are driven from the viewport instead — see `GraphCanvas`.
+ */
 .canvas {
   position: absolute;
   inset: 0;
   overflow: hidden;
   cursor: grab;
   touch-action: none;
+  --dot-gap: 22px;
+  --dot-radius: 1px;
   background-color: var(--panel);
-  background-image: radial-gradient(circle at 1px 1px, var(--canvas-dot) 1px, transparent 0);
-  background-size: 22px 22px;
+  background-image: radial-gradient(
+    circle at var(--dot-radius) var(--dot-radius),
+    var(--canvas-dot) var(--dot-radius),
+    transparent 0
+  );
+  background-size: var(--dot-gap) var(--dot-gap);
 }
 
 .canvas:active {

@@ -12,7 +12,7 @@ import {
   nodeId,
   removeNode,
 } from "../lib/graph";
-import { fitViewport, forceLayout } from "../lib/layout";
+import { fitViewport, forceLayout, dotGrid } from "../lib/layout";
 
 const node = (value: string, x = 0, y = 0) => ({
   kind: "instance" as const,
@@ -386,5 +386,44 @@ describe("forceLayout with multi-edges", () => {
     for (const node of forceLayout(alone).nodes) {
       assert.ok(Number.isFinite(node.x) && Number.isFinite(node.y));
     }
+  });
+});
+
+describe("dot grid", () => {
+  it("moves with the viewport, so the paper travels with the nodes", () => {
+    const grid = dotGrid({ x: -140, y: 80, scale: 1 });
+
+    assert.equal(grid.offsetX, -140);
+    assert.equal(grid.offsetY, 80);
+  });
+
+  it("scales the spacing with the zoom", () => {
+    assert.equal(dotGrid({ x: 0, y: 0, scale: 1 }).gap, 22);
+    assert.equal(dotGrid({ x: 0, y: 0, scale: 2 }).gap, 44);
+    assert.equal(dotGrid({ x: 0, y: 0, scale: 2.5 }).gap, 55);
+  });
+
+  it("doubles the spacing rather than letting the dots become a wash", () => {
+    // At the 0.25 floor a plain 22px tile would be 5.5px apart, which reads as
+    // grey noise. Doubling keeps them on the same lattice, just thinned out.
+    assert.equal(dotGrid({ x: 0, y: 0, scale: 0.25 }).gap, 22);
+    assert.equal(dotGrid({ x: 0, y: 0, scale: 0.4 }).gap, 17.6);
+
+    for (let scale = 0.25; scale <= 2.5; scale += 0.05) {
+      const { gap } = dotGrid({ x: 0, y: 0, scale });
+      assert.ok(gap >= 13, `gap stays legible at scale ${scale.toFixed(2)}`);
+
+      // Every gap is the base spacing scaled, then doubled zero or more times.
+      const factor = gap / (22 * scale);
+      assert.ok(
+        Math.abs(factor - 2 ** Math.round(Math.log2(factor))) < 1e-9,
+        `gap stays on the lattice at scale ${scale.toFixed(2)}`
+      );
+    }
+  });
+
+  it("keeps the dots visible at both ends of the zoom range", () => {
+    assert.ok(dotGrid({ x: 0, y: 0, scale: 0.25 }).radius >= 0.6);
+    assert.ok(dotGrid({ x: 0, y: 0, scale: 2.5 }).radius <= 1.6);
   });
 });
