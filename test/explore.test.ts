@@ -193,8 +193,35 @@ describe("parsers", () => {
 
   it("reads predicates and links", () => {
     assert.deepEqual(
-      parsePredicates(sparqlJson(["predicate", "count"], [{ predicate: uri("http://a/p"), count: literal("3") }])),
-      [{ iri: "http://a/p", count: 3 }]
+      parsePredicates(
+        sparqlJson(
+          ["predicate", "direction", "count"],
+          [
+            {
+              predicate: uri("http://a/p"),
+              direction: literal("out"),
+              count: literal("3"),
+            },
+            {
+              predicate: uri("http://a/q"),
+              direction: literal("in"),
+              count: literal("1"),
+            },
+          ]
+        )
+      ),
+      [
+        { iri: "http://a/p", direction: "out", count: 3 },
+        { iri: "http://a/q", direction: "in", count: 1 },
+      ]
+    );
+
+    // A store that drops the BIND still yields a usable list rather than none.
+    assert.deepEqual(
+      parsePredicates(
+        sparqlJson(["predicate", "count"], [{ predicate: uri("http://a/p"), count: literal("3") }])
+      ),
+      [{ iri: "http://a/p", direction: "out", count: 3 }]
     );
 
     assert.deepEqual(
@@ -354,5 +381,55 @@ describe("labels", () => {
     );
 
     assert.equal(labels.get("http://a/x"), "Proper");
+  });
+});
+
+describe("link direction", () => {
+  it("asks for both directions in one query", () => {
+    const query = predicatesQuery({ kind: "instance", iri: "http://a/x" });
+
+    // The node as subject, and the node as object, unioned.
+    assert.match(query, /<http:\/\/a\/x> \?predicate \?object/);
+    assert.match(query, /\?subject \?predicate <http:\/\/a\/x>/);
+    assert.match(query, /BIND\("out" AS \?direction\)/);
+    assert.match(query, /BIND\("in" AS \?direction\)/);
+    assert.match(query, /GROUP BY \?predicate \?direction/);
+  });
+
+  it("does the same for a class, through its instances", () => {
+    const query = predicatesQuery({ kind: "class", iri: "http://a/C" });
+
+    assert.match(query, /\?subject a <http:\/\/a\/C>/);
+    assert.match(query, /\?object a <http:\/\/a\/C>/);
+    assert.match(query, /BIND\("in" AS \?direction\)/);
+  });
+
+  it("reads the other end from the correct side", () => {
+    const node = { kind: "instance" as const, iri: "http://a/x" };
+
+    // Outgoing: the node is the subject, so the values are its objects.
+    assert.match(
+      objectsQuery(node, "http://a/p", 10, 0, "out"),
+      /<http:\/\/a\/x> <http:\/\/a\/p> \?object/
+    );
+
+    // Incoming: the node is the object, so the values are the subjects.
+    assert.match(
+      objectsQuery(node, "http://a/p", 10, 0, "in"),
+      /\?object <http:\/\/a\/p> <http:\/\/a\/x>/
+    );
+  });
+
+  it("defaults to outgoing, so old call sites keep their meaning", () => {
+    const node = { kind: "instance" as const, iri: "http://a/x" };
+    assert.equal(
+      objectsQuery(node, "http://a/p", 10, 0),
+      objectsQuery(node, "http://a/p", 10, 0, "out")
+    );
+  });
+
+  it("refuses an unsafe IRI in either direction", () => {
+    const node = { kind: "instance" as const, iri: "http://a/x" };
+    assert.throws(() => objectsQuery(node, "http://a/p q", 10, 0, "in"), /unsafe/i);
   });
 });

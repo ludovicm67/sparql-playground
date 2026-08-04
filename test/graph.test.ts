@@ -12,7 +12,7 @@ import {
   nodeId,
   removeNode,
 } from "../lib/graph";
-import { fitViewport, forceLayout, dotGrid } from "../lib/layout";
+import { fitViewport, forceLayout, dotGrid, minimapLayout, centreOn } from "../lib/layout";
 
 const node = (value: string, x = 0, y = 0) => ({
   kind: "instance" as const,
@@ -425,5 +425,64 @@ describe("dot grid", () => {
   it("keeps the dots visible at both ends of the zoom range", () => {
     assert.ok(dotGrid({ x: 0, y: 0, scale: 0.25 }).radius >= 0.6);
     assert.ok(dotGrid({ x: 0, y: 0, scale: 2.5 }).radius <= 1.6);
+  });
+});
+
+describe("minimap", () => {
+  const surface = { width: 800, height: 600 };
+  const frame = { width: 168, height: 118 };
+
+  it("keeps the view indicator inside the frame when panned into empty space", () => {
+    const nodes = [{ x: 0, y: 0 }];
+    // Looking a long way from the only node.
+    const layout = minimapLayout(nodes, { x: -4000, y: -3000, scale: 1 }, surface, frame);
+
+    assert.ok(layout.view.x >= -1 && layout.view.y >= -1);
+    assert.ok(layout.view.x + layout.view.width <= frame.width + 1);
+    assert.ok(layout.view.y + layout.view.height <= frame.height + 1);
+  });
+
+  it("shrinks the view indicator as you zoom in", () => {
+    const nodes = [{ x: 0, y: 0 }, { x: 900, y: 500 }];
+    const out = minimapLayout(nodes, { x: 0, y: 0, scale: 0.5 }, surface, frame);
+    const inn = minimapLayout(nodes, { x: 0, y: 0, scale: 2 }, surface, frame);
+
+    // Zoomed in you can see less of the world, so the rectangle covers less.
+    assert.ok(inn.view.width < out.view.width);
+    assert.ok(inn.view.height < out.view.height);
+  });
+
+  it("round-trips a point between frame and world", () => {
+    const layout = minimapLayout(
+      [{ x: 100, y: 200 }],
+      { x: 10, y: 20, scale: 1.5 },
+      surface,
+      frame
+    );
+
+    const world = layout.toWorld({ x: 40, y: 30 });
+    const back = layout.toFrame(world);
+
+    assert.ok(Math.abs(back.x - 40) < 1e-9);
+    assert.ok(Math.abs(back.y - 30) < 1e-9);
+  });
+
+  it("gives every node something visible to see", () => {
+    const nodes = Array.from({ length: 40 }, (_, i) => ({ x: i * 500, y: i * 300 }));
+    const layout = minimapLayout(nodes, { x: 0, y: 0, scale: 1 }, surface, frame);
+
+    assert.equal(layout.nodes.length, nodes.length);
+    for (const node of layout.nodes) {
+      assert.ok(node.width >= 3 && node.height >= 2, "no node collapses to nothing");
+    }
+  });
+
+  it("centres the surface on the point asked for", () => {
+    const viewport = centreOn({ x: 300, y: 150 }, surface, 2);
+
+    // The world point should land in the middle of the surface.
+    assert.equal(300 * viewport.scale + viewport.x, surface.width / 2);
+    assert.equal(150 * viewport.scale + viewport.y, surface.height / 2);
+    assert.equal(viewport.scale, 2, "zoom is preserved while jumping");
   });
 });

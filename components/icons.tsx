@@ -176,3 +176,17 @@ export const SystemThemeIcon = ({ size = 14 }: IconProps) => (
     <path d="M8.5 20.5h7M12 16.5v4" />
   </svg>
 );
+
+/** Direction of a link relative to the node being inspected. */
+export const ArrowIcon = ({
+  size = 13,
+  direction = "out",
+}: IconProps & { direction?: "in" | "out" }) => (
+  <svg {...base(size)}>
+    {direction === "out" ? (
+      <path d="M5 12h13M13 7l5 5-5 5" />
+    ) : (
+      <path d="M19 12H6M11 7l-5 5 5 5" />
+    )}
+  </svg>
+);

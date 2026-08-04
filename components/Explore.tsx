@@ -18,6 +18,7 @@ import {
   instancesQuery,
   isSafeIri,
   labelsQuery,
+  type LinkDirection,
   localName,
   type NodeKind,
   objectsQuery,
@@ -209,8 +210,15 @@ const Explore: React.FC<Props> = ({
   );
 
   const loadObjects = useCallback(
-    async (node: { kind: NodeKind; iri: string }, predicate: string, offset: number) =>
-      parseObjects(await run(objectsQuery(node, predicate, PAGE_SIZE, offset))),
+    async (
+      node: { kind: NodeKind; iri: string },
+      predicate: string,
+      offset: number,
+      direction: LinkDirection
+    ) =>
+      parseObjects(
+        await run(objectsQuery(node, predicate, PAGE_SIZE, offset, direction))
+      ),
     [run]
   );
 
@@ -367,7 +375,12 @@ const Explore: React.FC<Props> = ({
    * connected without asking the endpoint again.
    */
   const addObjects = useCallback(
-    (sourceId: string, predicate: string, terms: TermRef[]) => {
+    (
+      sourceId: string,
+      predicate: string,
+      terms: TermRef[],
+      direction: LinkDirection = "out"
+    ) => {
       // Which of these are actually new has to be decided before the update so
       // the updater stays pure.
       const arrivals = terms
@@ -395,7 +408,13 @@ const Explore: React.FC<Props> = ({
           });
 
           next = result.graph;
-          edges.push({ from: sourceId, to: result.id, predicate });
+          // An incoming predicate means the arrival is the subject, so the
+          // arrow has to run towards the node being inspected, not away.
+          edges.push(
+            direction === "in"
+              ? { from: result.id, to: sourceId, predicate }
+              : { from: sourceId, to: result.id, predicate }
+          );
         }
 
         return addEdges(next, edges);
@@ -443,11 +462,16 @@ const Explore: React.FC<Props> = ({
   }, [selectedIri, selectedKind, loadPredicates]);
 
   const inspectorObjects = useCallback(
-    async (predicate: string, offset: number) => {
+    async (predicate: string, offset: number, direction: LinkDirection) => {
       if (!selectedIri || !selectedKind || !predicate) {
         return [];
       }
-      return loadObjects({ kind: selectedKind, iri: selectedIri }, predicate, offset);
+      return loadObjects(
+        { kind: selectedKind, iri: selectedIri },
+        predicate,
+        offset,
+        direction
+      );
     },
     [selectedIri, selectedKind, loadObjects]
   );
@@ -599,8 +623,8 @@ const Explore: React.FC<Props> = ({
               objectPageSize={PAGE_SIZE}
               loadPredicates={inspectorPredicates}
               loadObjects={inspectorObjects}
-              onAddObjects={(predicate, terms) =>
-                addObjects(selected.id, predicate, terms)
+              onAddObjects={(predicate, terms, direction) =>
+                addObjects(selected.id, predicate, terms, direction)
               }
               onQueryNode={() => onOpenQuery(describeQuery(selected.term.value))}
               onOpenResource={() => onOpenResource(selected.term.value)}

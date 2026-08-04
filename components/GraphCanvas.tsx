@@ -1,8 +1,9 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { displayTerm, localName, type NodeKind, type TermRef } from "../lib/explore";
 import { type Graph, type GraphNode } from "../lib/graph";
 import { dotGrid } from "../lib/layout";
 import { ChipIcon, CloseIcon, CloudIcon, ResourceIcon } from "./icons";
+import Minimap from "./Minimap";
 
 export type Viewport = { x: number; y: number; scale: number };
 
@@ -77,6 +78,25 @@ const GraphCanvas: React.FC<Props> = ({
     | undefined
   >(undefined);
   const [dragOver, setDragOver] = useState(false);
+
+  // The minimap needs to know how much of the world is on screen, which only
+  // the rendered surface can say.
+  const [surface, setSurface] = useState({ width: 0, height: 0 });
+  useEffect(() => {
+    const element = surfaceRef.current;
+    if (!element || typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const observer = new ResizeObserver(([entry]) =>
+      setSurface({
+        width: entry.contentRect.width,
+        height: entry.contentRect.height,
+      })
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   /** Screen coordinates -> graph coordinates. */
   const toGraph = useCallback(
@@ -384,6 +404,13 @@ const GraphCanvas: React.FC<Props> = ({
           </div>
         ))}
       </div>
+
+      <Minimap
+        graph={graph}
+        viewport={viewport}
+        surface={surface}
+        onViewportChange={onViewportChange}
+      />
 
       {graph.nodes.length === 0 ? (
         <div className="canvas-empty">

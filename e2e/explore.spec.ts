@@ -437,10 +437,11 @@ test("the dotted paper travels with the canvas", async ({ page }) => {
   const before = await paper();
   const beforeX = await nodeX();
 
-  // Pan from an empty corner, well away from the node.
+  // Pan from an empty spot: away from the node, and away from the minimap in
+  // the bottom-left corner.
   const canvas = (await page.locator(".canvas").boundingBox())!;
   const fromX = canvas.x + 80;
-  const fromY = canvas.y + canvas.height - 100;
+  const fromY = canvas.y + 110;
   await page.mouse.move(fromX, fromY);
   await page.mouse.down();
   await page.mouse.move(fromX - 130, fromY - 70, { steps: 15 });
@@ -465,4 +466,97 @@ test("the dotted paper travels with the canvas", async ({ page }) => {
 
   const zoomed = await paper();
   expect(parseFloat(zoomed.size)).toBeGreaterThan(parseFloat(after.size));
+});
+
+test("shows what points at a node, not just what it points to", async ({ page }) => {
+  await switchMode(page, "Explore");
+  await openFirstClass(page);
+  await addRowToCanvas(page, "sheldon-cooper");
+  await page.locator(".node").first().click();
+
+  const groups = page.locator(".predicate-group");
+  await expect(groups).toHaveCount(2);
+  await expect(groups.first()).toContainText("Points at");
+  await expect(groups.last()).toContainText("Pointed at by");
+
+  // Mary claims Sheldon as her child, so `children` points *at* him — it is not
+  // one of his own statements.
+  await expect(groups.first()).toContainText("parent");
+  await expect(groups.first()).not.toContainText("children");
+  await expect(groups.last()).toContainText("children");
+});
+
+test("an incoming predicate draws its arrow towards the node", async ({ page }) => {
+  await switchMode(page, "Explore");
+  await openFirstClass(page);
+  await addRowToCanvas(page, "sheldon-cooper");
+  await page.locator(".node").first().click();
+
+  // Follow the incoming `children` and bring the subject in.
+  await page.locator(".predicate-group").last().locator(".explore-row-main").first().click();
+  await page.locator(".explore-select-all input").check();
+  await page.getByRole("button", { name: /Add .* to canvas/ }).click();
+  await expect(page.locator(".node")).toHaveCount(2, { timeout: 20_000 });
+
+  const svg = await page.locator(".canvas-edges").innerHTML();
+  expect(svg).toContain("children");
+
+  // The arrow runs from Mary to Sheldon, which is the direction the statement
+  // actually has — adding from an incoming predicate must not reverse it.
+  const marker = await page
+    .locator(".edge")
+    .first()
+    .evaluate((el) => el.querySelector("path")?.getAttribute("marker-end"));
+  expect(marker).toBeTruthy();
+});
+
+test("the minimap tracks the canvas and can steer it", async ({ page }) => {
+  await switchMode(page, "Explore");
+
+  // Nothing to summarise yet.
+  await expect(page.locator(".canvas-minimap")).toHaveCount(0);
+
+  await openFirstClass(page);
+  await addRowToCanvas(page, "sheldon-cooper");
+  await addRowToCanvas(page, "penny");
+
+  const minimap = page.locator(".canvas-minimap");
+  await expect(minimap).toBeVisible();
+  await expect(page.locator(".canvas-minimap-node")).toHaveCount(2);
+
+  const viewBox = () =>
+    page.locator(".canvas-minimap-view").evaluate((el) => ({
+      x: Number(el.getAttribute("x")),
+      y: Number(el.getAttribute("y")),
+      width: Number(el.getAttribute("width")),
+      height: Number(el.getAttribute("height")),
+    }));
+
+  // Pan a long way from the nodes: the indicator has to stay in the frame, or
+  // there is no telling where you have ended up. (How it responds to zoom
+  // depends on how the nodes are spread, and is pinned in the unit tests.)
+  const canvas = (await page.locator(".canvas").boundingBox())!;
+  await page.mouse.move(canvas.x + canvas.width - 60, canvas.y + 90);
+  await page.mouse.down();
+  await page.mouse.move(canvas.x + 120, canvas.y + canvas.height - 200, { steps: 20 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+
+  const view = await viewBox();
+  const frame = (await minimap.boundingBox())!;
+  expect(view.x).toBeGreaterThanOrEqual(-1);
+  expect(view.y).toBeGreaterThanOrEqual(-1);
+  expect(view.x + view.width).toBeLessThanOrEqual(frame.width + 1);
+  expect(view.y + view.height).toBeLessThanOrEqual(frame.height + 1);
+
+  // And pressing the map jumps the canvas there.
+  const nodeBefore = (await page.locator(".node").first().boundingBox())!;
+  const box = (await minimap.boundingBox())!;
+  await page.mouse.click(box.x + box.width - 18, box.y + box.height - 18);
+  await page.waitForTimeout(400);
+  const nodeAfter = (await page.locator(".node").first().boundingBox())!;
+
+  expect(
+    Math.abs(nodeAfter.x - nodeBefore.x) + Math.abs(nodeAfter.y - nodeBefore.y)
+  ).toBeGreaterThan(5);
 });

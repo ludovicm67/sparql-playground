@@ -3,6 +3,7 @@ import {
   displayTerm,
   isReferenceable,
   localName,
+  type LinkDirection,
   type ObjectEntry,
   type PredicateEntry,
   termKey,
@@ -18,18 +19,42 @@ import {
   PlusIcon,
   QueryIcon,
   ResourceIcon,
+  ArrowIcon,
 } from "./icons";
 
 type Props = {
   node: GraphNode;
   objectPageSize: number;
   loadPredicates: () => Promise<PredicateEntry[]>;
-  loadObjects: (predicate: string, offset: number) => Promise<ObjectEntry[]>;
-  onAddObjects: (predicate: string, terms: TermRef[]) => void;
+  loadObjects: (
+    predicate: string,
+    offset: number,
+    direction: LinkDirection
+  ) => Promise<ObjectEntry[]>;
+  onAddObjects: (
+    predicate: string,
+    terms: TermRef[],
+    direction: LinkDirection
+  ) => void;
   onQueryNode: () => void;
   onOpenResource: () => void;
   onClose: () => void;
 };
+
+const DIRECTIONS: { key: LinkDirection; title: string; hint: string; empty: string }[] = [
+  {
+    key: "out",
+    title: "Points at",
+    hint: "Statements where this node is the subject.",
+    empty: "Nothing links out of this node.",
+  },
+  {
+    key: "in",
+    title: "Pointed at by",
+    hint: "Statements where this node is the object.",
+    empty: "Nothing links to this node.",
+  },
+];
 
 const PredicateList: React.FC<{
   load: () => Promise<PredicateEntry[]>;
@@ -48,34 +73,63 @@ const PredicateList: React.FC<{
           {error}
         </div>
       ) : null}
-      {!loading && !error && items.length === 0 ? (
-        <p className="sidebar-empty">Nothing links out of this node.</p>
-      ) : null}
 
-      <ul className="explore-rows">
-        {items.map((predicate) => (
-          <li key={predicate.iri}>
-            <div className="explore-row">
-              <button
-                className="explore-row-main"
-                type="button"
-                onClick={() => onPick(predicate)}
-                data-tooltip={predicate.iri}
-              >
-                <span className="explore-row-text">
-                  <span className="explore-row-primary">{localName(predicate.iri)}</span>
-                  <span className="explore-row-secondary">{predicate.iri}</span>
-                </span>
-                {predicate.count === undefined ? null : (
-                  <span className="explore-count">
-                    {predicate.count.toLocaleString()}
-                  </span>
-                )}
-              </button>
-            </div>
-          </li>
-        ))}
-      </ul>
+      {DIRECTIONS.map((group) => {
+        const inGroup = items.filter((entry) => entry.direction === group.key);
+
+        // An empty outgoing list is worth saying out loud; an empty incoming
+        // one only when there is nothing at all, or every leaf node would
+        // carry the same redundant line.
+        if (inGroup.length === 0 && (group.key === "in" || items.length > 0)) {
+          return loading || items.length > 0 ? null : (
+            <p className="sidebar-empty" key={group.key}>
+              {group.empty}
+            </p>
+          );
+        }
+
+        return (
+          <section className="predicate-group" key={group.key}>
+            <h4 className={`predicate-group-title is-${group.key}`}>
+              <ArrowIcon size={12} direction={group.key} />
+              {group.title}
+              <span className="explore-count">{inGroup.length}</span>
+            </h4>
+            <p className="predicate-group-hint">{group.hint}</p>
+
+            <ul className="explore-rows">
+              {inGroup.map((predicate) => (
+                <li key={`${group.key}:${predicate.iri}`}>
+                  <div className="explore-row">
+                    <button
+                      className="explore-row-main"
+                      type="button"
+                      onClick={() => onPick(predicate)}
+                      data-tooltip={predicate.iri}
+                    >
+                      <span className="explore-row-text">
+                        <span className="explore-row-primary">
+                          {localName(predicate.iri)}
+                        </span>
+                        <span className="explore-row-secondary">{predicate.iri}</span>
+                      </span>
+                      {predicate.count === undefined ? null : (
+                        <span className="explore-count">
+                          {predicate.count.toLocaleString()}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })}
+
+      {!loading && !error && items.length === 0 ? (
+        <p className="sidebar-empty">Nothing links to or from this node.</p>
+      ) : null}
 
       {loading ? <p className="explore-loading">Loading…</p> : null}
     </div>
@@ -86,7 +140,7 @@ const ObjectList: React.FC<{
   predicate: PredicateEntry;
   pageSize: number;
   load: (offset: number) => Promise<ObjectEntry[]>;
-  onAdd: (terms: TermRef[]) => void;
+  onAdd: (terms: TermRef[], direction: LinkDirection) => void;
 }> = ({ predicate, pageSize, load, onAdd }) => {
   const { items, loading, error, exhausted, loadMore } = usePagedQuery(load, pageSize);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -116,7 +170,7 @@ const ObjectList: React.FC<{
       .map((item) => item.term);
 
     if (terms.length > 0) {
-      onAdd(terms);
+      onAdd(terms, predicate.direction);
       setSelected(new Set());
     }
   };
@@ -130,7 +184,7 @@ const ObjectList: React.FC<{
           </div>
         ) : null}
         {!loading && !error && items.length === 0 ? (
-          <p className="sidebar-empty">No values for this predicate.</p>
+          <p className="sidebar-empty">Nothing on the other end of this predicate.</p>
         ) : null}
 
         {addable.length > 0 ? (
@@ -195,7 +249,10 @@ const ObjectList: React.FC<{
           <PlusIcon size={13} />
           Add {selected.size > 0 ? selected.size : ""} to canvas
         </button>
-        <span className="field-hint">via {localName(predicate.iri)}</span>
+        <span className="field-hint">
+          {predicate.direction === "in" ? "pointing here via " : "via "}
+          {localName(predicate.iri)}
+        </span>
       </div>
     </>
   );
@@ -214,7 +271,8 @@ const NodeInspector: React.FC<Props> = ({
   const [predicate, setPredicate] = useState<PredicateEntry | undefined>();
 
   const objects = useCallback(
-    (offset: number) => loadObjects(predicate?.iri ?? "", offset),
+    (offset: number) =>
+      loadObjects(predicate?.iri ?? "", offset, predicate?.direction ?? "out"),
     [loadObjects, predicate]
   );
 
@@ -283,7 +341,9 @@ const NodeInspector: React.FC<Props> = ({
             predicate={predicate}
             pageSize={objectPageSize}
             load={objects}
-            onAdd={(terms) => onAddObjects(predicate.iri, terms)}
+            onAdd={(terms, direction) =>
+              onAddObjects(predicate.iri, terms, direction)
+            }
           />
         </>
       ) : (

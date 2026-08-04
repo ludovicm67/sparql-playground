@@ -234,3 +234,91 @@ export const dotGrid = ({ x, y, scale }: { x: number; y: number; scale: number }
     offsetY: y,
   };
 };
+
+/** Half-extents of a node box, matching the sizes `GraphCanvas` renders at. */
+const NODE_HALF_WIDTH = 84;
+const NODE_HALF_HEIGHT = 23;
+
+export type MinimapBox = { x: number; y: number; width: number; height: number };
+
+/**
+ * Geometry for the overview map: where each node sits inside the small frame,
+ * and where the part of the world currently on screen falls within it.
+ *
+ * The bounds cover the nodes *and* the visible rectangle, so panning away into
+ * empty space shrinks everything rather than letting the view indicator slide
+ * out of the frame and leave you with no idea where you are.
+ */
+export const minimapLayout = (
+  nodes: readonly { x: number; y: number }[],
+  viewport: { x: number; y: number; scale: number },
+  surface: { width: number; height: number },
+  frame: { width: number; height: number },
+  padding = 26
+) => {
+  // What the canvas is currently showing, in world coordinates.
+  const view: MinimapBox = {
+    x: -viewport.x / viewport.scale,
+    y: -viewport.y / viewport.scale,
+    width: surface.width / viewport.scale,
+    height: surface.height / viewport.scale,
+  };
+
+  let minX = view.x;
+  let maxX = view.x + view.width;
+  let minY = view.y;
+  let maxY = view.y + view.height;
+
+  for (const node of nodes) {
+    minX = Math.min(minX, node.x - NODE_HALF_WIDTH);
+    maxX = Math.max(maxX, node.x + NODE_HALF_WIDTH);
+    minY = Math.min(minY, node.y - NODE_HALF_HEIGHT);
+    maxY = Math.max(maxY, node.y + NODE_HALF_HEIGHT);
+  }
+
+  const worldWidth = Math.max(1, maxX - minX);
+  const worldHeight = Math.max(1, maxY - minY);
+  const usableWidth = Math.max(1, frame.width - padding);
+  const usableHeight = Math.max(1, frame.height - padding);
+
+  const scale = Math.min(usableWidth / worldWidth, usableHeight / worldHeight);
+  // Centre whatever is left over, so the map sits in the middle of its frame.
+  const offsetX = (frame.width - worldWidth * scale) / 2 - minX * scale;
+  const offsetY = (frame.height - worldHeight * scale) / 2 - minY * scale;
+
+  const toFrame = (point: { x: number; y: number }) => ({
+    x: point.x * scale + offsetX,
+    y: point.y * scale + offsetY,
+  });
+
+  return {
+    scale,
+    toFrame,
+    /** Frame coordinates back to world, for clicking somewhere on the map. */
+    toWorld: (point: { x: number; y: number }) => ({
+      x: (point.x - offsetX) / scale,
+      y: (point.y - offsetY) / scale,
+    }),
+    nodes: nodes.map((node) => ({
+      ...toFrame(node),
+      width: Math.max(3, NODE_HALF_WIDTH * 2 * scale),
+      height: Math.max(2, NODE_HALF_HEIGHT * 2 * scale),
+    })),
+    view: {
+      ...toFrame(view),
+      width: view.width * scale,
+      height: view.height * scale,
+    },
+  };
+};
+
+/** A viewport that centres the given world point in the surface. */
+export const centreOn = (
+  world: { x: number; y: number },
+  surface: { width: number; height: number },
+  scale: number
+) => ({
+  scale,
+  x: surface.width / 2 - world.x * scale,
+  y: surface.height / 2 - world.y * scale,
+});

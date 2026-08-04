@@ -2821,3 +2821,98 @@ a {
 .sidebar-footer-sep {
   color: var(--text-ghost);
 }
+
+/* --------------------------------------------------- predicate direction */
+
+.predicate-group + .predicate-group {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.predicate-group-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 2px;
+  padding: 0 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+/* The two directions read at a glance, without relying on the wording. */
+.predicate-group-title.is-out svg {
+  color: var(--accent-bright);
+}
+
+.predicate-group-title.is-in svg {
+  color: var(--var);
+}
+
+.predicate-group-hint {
+  margin: 0 0 8px;
+  padding: 0 4px;
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+/* --------------------------------------------------------------- minimap */
+
+/* Namespaced: Monaco ships its own `.minimap`, and an unqualified rule here
+   would reach into the editor and reposition it. */
+
+.canvas-minimap {
+  position: absolute;
+  /* Bottom-left, because the node inspector opens over the right-hand side of
+     the canvas and would bury it there. */
+  left: 12px;
+  bottom: 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  box-shadow: 0 6px 18px var(--shadow-sm);
+  cursor: pointer;
+  overflow: hidden;
+  /* Above the nodes, below the inspector and the tour. */
+  z-index: 5;
+  opacity: 0.72;
+  transition: opacity 0.15s;
+}
+
+.canvas-minimap:hover,
+.canvas-minimap.is-scrubbing {
+  opacity: 1;
+}
+
+.canvas-minimap.is-scrubbing {
+  cursor: grabbing;
+}
+
+.canvas-minimap-node {
+  fill: var(--text-ghost);
+}
+
+.canvas-minimap-node.is-class {
+  fill: var(--accent);
+}
+
+.canvas-minimap-node.is-literal {
+  fill: var(--literal);
+}
+
+/* The part of the world currently on screen. */
+.canvas-minimap-view {
+  fill: var(--accent-soft);
+  stroke: var(--accent-bright);
+  stroke-width: 1;
+}
+
+@media (max-width: 640px) {
+  /* Too little canvas to spare on an overview of it. */
+  .canvas-minimap {
+    display: none;
+  }
+}

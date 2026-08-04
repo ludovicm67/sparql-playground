@@ -8,7 +8,19 @@ export type TermRef =
 
 export type ClassEntry = { iri: string; count?: number; label?: string };
 export type InstanceEntry = { iri: string; label?: string };
-export type PredicateEntry = { iri: string; count?: number; label?: string };
+/**
+ * Which way a predicate runs relative to the node being inspected: "out" when
+ * the node is the subject, "in" when it is the object. Both are worth seeing —
+ * half of what a resource means is what points at it.
+ */
+export type LinkDirection = "out" | "in";
+
+export type PredicateEntry = {
+  iri: string;
+  direction: LinkDirection;
+  count?: number;
+  label?: string;
+};
 export type ObjectEntry = { term: TermRef; label?: string };
 
 export const PAGE_SIZE = 50;
@@ -116,42 +128,70 @@ LIMIT ${iris.length * LABEL_PREDICATES.length * 4}`;
 
 export const predicatesQuery = (node: { kind: NodeKind; iri: string }) =>
   node.kind === "class"
-    ? `# Predicates used by instances of ${node.iri}
-SELECT ?predicate (COUNT(*) AS ?count) WHERE {
-  ?subject a ${iriRef(node.iri)} ;
-           ?predicate ?object .
+    ? `# Predicates in and out of instances of ${node.iri}
+SELECT ?predicate ?direction (COUNT(*) AS ?count) WHERE {
+  {
+    ?subject a ${iriRef(node.iri)} ;
+             ?predicate ?object .
+    BIND("out" AS ?direction)
+  } UNION {
+    ?object a ${iriRef(node.iri)} .
+    ?subject ?predicate ?object .
+    BIND("in" AS ?direction)
+  }
 }
-GROUP BY ?predicate
-ORDER BY DESC(?count) ?predicate
+GROUP BY ?predicate ?direction
+ORDER BY ?direction DESC(?count) ?predicate
 LIMIT 200`
-    : `# Predicates of ${node.iri}
-SELECT ?predicate (COUNT(?object) AS ?count) WHERE {
-  ${iriRef(node.iri)} ?predicate ?object .
+    : `# Predicates in and out of ${node.iri}
+SELECT ?predicate ?direction (COUNT(*) AS ?count) WHERE {
+  {
+    ${iriRef(node.iri)} ?predicate ?object .
+    BIND("out" AS ?direction)
+  } UNION {
+    ?subject ?predicate ${iriRef(node.iri)} .
+    BIND("in" AS ?direction)
+  }
 }
-GROUP BY ?predicate
-ORDER BY ?predicate
+GROUP BY ?predicate ?direction
+ORDER BY ?direction ?predicate
 LIMIT 200`;
 
+/**
+ * The terms on the other end of a predicate. For an outgoing predicate those
+ * are its objects; for an incoming one they are the subjects pointing at the
+ * node, which is why the direction has to be carried this far.
+ */
 export const objectsQuery = (
   node: { kind: NodeKind; iri: string },
   predicate: string,
   limit: number,
-  offset: number
-) =>
-  node.kind === "class"
-    ? `# Values of ${predicate} across instances of ${node.iri}
+  offset: number,
+  direction: LinkDirection = "out"
+) => {
+  const pattern =
+    node.kind === "class"
+      ? direction === "out"
+        ? `?subject a ${iriRef(node.iri)} ;
+           ${iriRef(predicate)} ?object .`
+        : `?other a ${iriRef(node.iri)} .
+  ?object ${iriRef(predicate)} ?other .`
+      : direction === "out"
+        ? `${iriRef(node.iri)} ${iriRef(predicate)} ?object .`
+        : `?object ${iriRef(predicate)} ${iriRef(node.iri)} .`;
+
+  const heading =
+    direction === "out"
+      ? `# Values of ${predicate} for ${node.iri}`
+      : `# Subjects pointing at ${node.iri} through ${predicate}`;
+
+  return `${heading}
 SELECT DISTINCT ?object WHERE {
-  ?subject a ${iriRef(node.iri)} ;
-           ${iriRef(predicate)} ?object .
-}
-ORDER BY ?object
-LIMIT ${limit} OFFSET ${offset}`
-    : `# Values of ${predicate} for ${node.iri}
-SELECT DISTINCT ?object WHERE {
-  ${iriRef(node.iri)} ${iriRef(predicate)} ?object .
+  ${pattern}
 }
 ORDER BY ?object
 LIMIT ${limit} OFFSET ${offset}`;
+};
 
 /**
  * Direct triples between newly added IRIs and everything on the canvas, in both
@@ -271,9 +311,16 @@ export const parseInstances = (result: QueryResult): InstanceEntry[] =>
 export const parsePredicates = (result: QueryResult): PredicateEntry[] =>
   bindings(result).flatMap((binding) => {
     const term = toTerm(binding.predicate);
-    return term?.type === "uri" && isSafeIri(term.value)
-      ? [{ iri: term.value, count: asNumber(binding.count) }]
-      : [];
+    if (term?.type !== "uri" || !isSafeIri(term.value)) {
+      return [];
+    }
+
+    // Anything but an explicit "in" is treated as outgoing, so a store that
+    // drops the BIND still yields a usable list.
+    const direction: LinkDirection =
+      binding.direction?.value === "in" ? "in" : "out";
+
+    return [{ iri: term.value, direction, count: asNumber(binding.count) }];
   });
 
 export const parseObjects = (result: QueryResult): ObjectEntry[] =>
