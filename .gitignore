@@ -42,3 +42,6 @@ yarn-error.log*
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# monaco, copied out of node_modules by scripts/copy-monaco.mjs
+/public/monaco/
