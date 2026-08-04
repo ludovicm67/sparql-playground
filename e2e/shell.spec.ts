@@ -276,3 +276,87 @@ test("asks before destroying things, in its own dialog", async ({ page }) => {
 
   expect(nativeDialogs, "the browser's own dialog was used").toBe(0);
 });
+
+test("keeps the whole header on screen on a small phone", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await waitForApp(page);
+
+  const header = page.locator(".app-header");
+  await expect(header).toBeVisible();
+
+  // Nothing may spill past the right edge: the repository link used to sit
+  // off-screen entirely, with the connection pill cut in half.
+  const overflow = await header.evaluate((el) => el.scrollWidth - el.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+
+  const width = (await header.boundingBox())!.width;
+  const link = await page.locator(".header-link").boundingBox();
+  expect(link!.x + link!.width).toBeLessThanOrEqual(width);
+
+  // The labels go, but the buttons keep their names.
+  await expect(page.locator(".segment-label").first()).toBeHidden();
+  await expect(page.getByRole("button", { name: "Explore", exact: true })).toBeVisible();
+});
+
+test("leaves room for the history when there are many connections", async ({ page }) => {
+  await page.goto("/");
+  await waitForApp(page);
+
+  // A long connection list on a short screen used to take the whole sidebar,
+  // leaving the history heading above nothing and no way to scroll to it.
+  await page.evaluate(() => {
+    const connections = [
+      { id: "local-tbbt", kind: "local", name: "TBBT (Oxigraph in browser)" },
+    ];
+    for (let i = 0; i < 7; i++) {
+      connections.push({
+        id: "c" + i,
+        kind: "remote",
+        name: "Endpoint " + (i + 1),
+        endpoint: "https://example.org/sparql",
+        headers: [],
+        auth: { kind: "none" },
+      } as never);
+    }
+    localStorage.setItem("sparql-playground:connections", JSON.stringify(connections));
+    localStorage.setItem(
+      "sparql-playground:active-connection",
+      JSON.stringify("local-tbbt")
+    );
+    localStorage.setItem(
+      "sparql-playground:history",
+      JSON.stringify({
+        "local-tbbt": Array.from({ length: 8 }, (_, i) => ({
+          id: "h" + i,
+          query: "SELECT ?s WHERE { ?s ?p ?o } LIMIT " + (i + 1),
+          at: Date.now() - i * 60_000,
+          status: "ok",
+          rows: i + 1,
+          duration: 12,
+        })),
+      })
+    );
+  });
+
+  await page.setViewportSize({ width: 390, height: 640 });
+  await page.reload();
+  await waitForApp(page);
+  await page.getByRole("button", { name: /Show the sidebar/ }).click();
+
+  const list = page.locator(".history-list");
+  await expect(list).toBeVisible();
+
+  // At least one entry readable, and the rest reachable by scrolling.
+  const box = (await list.boundingBox())!;
+  expect(box.height).toBeGreaterThan(60);
+
+  const first = (await page.locator(".history-list li").first().boundingBox())!;
+  expect(first.y + first.height).toBeLessThanOrEqual(box.y + box.height + 1);
+
+  // The connections list keeps its own scroll rather than pushing history out.
+  const connectionsScroll = await page
+    .locator(".connection-list")
+    .evaluate((el) => el.scrollHeight > el.clientHeight + 1);
+  expect(connectionsScroll).toBe(true);
+});

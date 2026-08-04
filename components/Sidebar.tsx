@@ -70,7 +70,7 @@ const Sidebar: React.FC<Props> = ({
   onClearStoredData,
 }) => (
   <aside className="sidebar" aria-label="Connections and history">
-    <section className="sidebar-section">
+    <section className="sidebar-section sidebar-section--connections">
       <div className="sidebar-heading">
         <span className="panel-title">Connections</span>
         <button

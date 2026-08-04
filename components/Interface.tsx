@@ -563,15 +563,17 @@ const Interface = () => {
           <button
             className="segment"
             type="button"
+            aria-label="Query"
             aria-pressed={mode === "query"}
             onClick={() => setMode("query")}
           >
             <FormatIcon size={13} />
-            Query
+            <span className="segment-label">Query</span>
           </button>
           <button
             className="segment"
             type="button"
+            aria-label="Explore"
             aria-pressed={mode === "explore"}
             onClick={() => {
               setExploreOpened(true);
@@ -579,16 +581,17 @@ const Interface = () => {
             }}
           >
             <GraphIcon size={13} />
-            Explore
+            <span className="segment-label">Explore</span>
           </button>
           <button
             className="segment"
             type="button"
+            aria-label="Resource"
             aria-pressed={mode === "resource"}
             onClick={() => setMode("resource")}
           >
             <ResourceIcon size={13} />
-            Resource
+            <span className="segment-label">Resource</span>
           </button>
         </div>
 

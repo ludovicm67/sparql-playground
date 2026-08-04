@@ -297,13 +297,46 @@ a {
   border-color: var(--accent-line);
 }
 
+/* The subtitle is the first thing worth losing: it restates what the pill on
+   the other side already says. */
+@media (max-width: 900px) {
+  .brand-sub {
+    display: none;
+  }
+}
+
 @media (max-width: 640px) {
+  .app-header {
+    gap: 10px;
+    padding: 0 12px;
+  }
+
   .mode-switch .segment {
     padding: 6px 9px;
   }
-  .mode-switch .segment span,
-  .brand-sub {
+
+  /* Icons carry the meaning here; the buttons keep their names through
+     aria-label, so this stays reachable by screen reader and by test. */
+  .segment-label {
     display: none;
+  }
+
+  /* Decoration, next to three controls that are not. The mark stays as the
+     thing to tap back to. */
+  .brand h1 {
+    display: none;
+  }
+
+  /* Let the connection pill give up space rather than push the repository
+     link off the edge of the screen. */
+  .header-meta {
+    flex-shrink: 1;
+    min-width: 0;
+  }
+
+  .pill {
+    min-width: 0;
+    overflow: hidden;
   }
 }
 
@@ -957,8 +990,20 @@ a {
   border-bottom: 1px solid var(--border);
 }
 
+/*
+ * Connections must not crowd out the history below them. Without a cap, a
+ * handful of connections on a short screen took the whole sidebar and left the
+ * history heading visible above nothing, with no way to scroll to it.
+ */
+.sidebar-section--connections {
+  flex: 0 1 auto;
+  max-height: 50%;
+  overflow: hidden;
+}
+
 .sidebar-section--history {
-  flex: 1;
+  flex: 1 1 0;
+  min-height: 0;
   border-bottom: none;
   overflow: hidden;
 }
@@ -990,6 +1035,26 @@ a {
   border-top: 1px solid var(--border);
 }
 
+/*
+ * A short viewport — a landscape phone, or a small window — cannot spare a
+ * third of the sidebar for footer prose while the history goes unreadable
+ * above it. The destructive action, the credit and the build stay; the note
+ * goes, since "Clear all stored data" already implies it.
+ */
+@media (max-height: 620px) {
+  .sidebar-note {
+    display: none;
+  }
+
+  .sidebar-footer {
+    padding: 8px 14px 10px;
+  }
+
+  .sidebar-section--connections {
+    max-height: 40%;
+  }
+}
+
 .sidebar-note {
   margin: 6px 0 0;
   font-size: 11px;
@@ -1006,6 +1071,9 @@ a {
   flex-direction: column;
   gap: 2px;
   overflow-y: auto;
+  /* Both sit in a flex column: without this they refuse to shrink below their
+     content and scroll, and push their neighbour off the sidebar instead. */
+  min-height: 0;
 }
 
 .history-list {
