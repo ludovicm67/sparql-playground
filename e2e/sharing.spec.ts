@@ -1,5 +1,8 @@
-import { expect, test, type Page } from "@playwright/test";
+import { type Page } from "@playwright/test";
 import {
+  expect,
+  test,
+  openRecipient,
   addMockConnection,
   addRowToCanvas,
   canvasStatus,
@@ -34,7 +37,7 @@ test("shares a query and opens it in a clean browser", async ({ page, browser })
   const link = await shareLink(page);
   expect(link).toContain("#s=");
 
-  const other = await browser.newPage();
+  const other = await openRecipient(browser);
   await other.goto(link);
   await waitForEditor(other);
   expect(await editorValue(other)).toContain("?shared");
@@ -87,7 +90,7 @@ test("a recipient without credentials is told to add them", async ({ page, brows
   await page.getByRole("button", { name: "Share this query" }).click();
   const link = await shareLink(page);
 
-  const other = await browser.newPage();
+  const other = await openRecipient(browser);
   await other.goto(link);
   await waitForEditor(other);
 
@@ -109,7 +112,7 @@ test("reuses the recipient's own connection for a known endpoint", async ({
   await page.getByRole("button", { name: "Share this query" }).click();
   const link = await shareLink(page);
 
-  const other = await browser.newPage();
+  const other = await openRecipient(browser);
   await other.goto("/");
   await waitForEditor(other);
   // Same endpoint, written with a trailing slash.
@@ -137,7 +140,7 @@ test("shares a canvas as a new tab on the other side", async ({ page, browser })
   await expect(page.locator(".dialog-header h2")).toContainText("Coopers");
   const link = await shareLink(page);
 
-  const other = await browser.newPage();
+  const other = await openRecipient(browser);
   await other.goto(link);
   await waitForApp(other);
   await expect(other.locator(".notice-text")).toContainText("Coopers");
@@ -158,7 +161,7 @@ test("shares a resource straight into its page", async ({ page, browser }) => {
   await expect(page.locator(".dialog-header h2")).toHaveText("Share this resource");
   const link = await shareLink(page);
 
-  const other = await browser.newPage();
+  const other = await openRecipient(browser);
   await other.goto(link);
   await waitForApp(other);
 

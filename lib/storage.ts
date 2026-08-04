@@ -6,6 +6,7 @@ export const STORAGE_KEYS = {
   resources: "sparql-playground:resources",
   draft: "sparql-playground:draft",
   theme: "sparql-playground:theme",
+  tour: "sparql-playground:tour",
 } as const;
 
 export const readJson = <T>(key: string, fallback: T): T => {

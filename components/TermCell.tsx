@@ -89,6 +89,7 @@ const TermCell: React.FC<Props> = ({ term, onOpenResource }) => {
         <button
           className="term term-uri term-link"
           type="button"
+          data-iri={term.value}
           data-tooltip={`Open ${term.value}`}
           onClick={() => onOpenResource(term.value)}
         >

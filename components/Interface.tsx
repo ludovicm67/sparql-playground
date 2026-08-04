@@ -70,6 +70,11 @@ import {
   type Theme,
 } from "../lib/theme";
 import { loadDraft, saveDraft } from "../lib/drafts";
+import {
+  saveTourChoice,
+  shouldOfferTour,
+  type TourAction,
+} from "../lib/tour";
 import { DEFAULT_NAV, type Mode, readNav, syncNav } from "../lib/navigation";
 import { useConfirm } from "./ConfirmProvider";
 import ConnectionDialog from "./ConnectionDialog";
@@ -79,6 +84,8 @@ import ShareDialog from "./ShareDialog";
 import GraphMark from "./GraphMark";
 import Results from "./Results";
 import Sidebar from "./Sidebar";
+import Tour from "./Tour";
+import TourInvite from "./TourInvite";
 import {
   AlertIcon,
   CloseIcon,
@@ -210,6 +217,12 @@ const Interface = () => {
   // bury the editor behind it.
   const [sidebarOpen, setSidebarOpen] = useState(
     () => typeof window === "undefined" || window.innerWidth > 760
+  );
+
+  // A first visit is offered the tour; either answer is remembered, so this
+  // resolves to "idle" on every later visit.
+  const [tour, setTour] = useState<"idle" | "inviting" | "running">(() =>
+    shouldOfferTour() ? "inviting" : "idle"
   );
 
   const [theme, setTheme] = useState<Theme>(loadTheme);
@@ -513,6 +526,94 @@ const Interface = () => {
     setMode("resource");
   }, []);
 
+  // Explore takes one IRI at a time and reports back when it has taken it, so
+  // the tour can hand over two in turn and let the link between them be drawn.
+  const canvasTaken = useRef<(() => void) | undefined>(undefined);
+
+  const handToCanvas = useCallback(
+    (uri: string) =>
+      new Promise<void>((resolve) => {
+        const timer = setTimeout(resolve, 2000);
+        canvasTaken.current = () => {
+          clearTimeout(timer);
+          resolve();
+        };
+        setPendingCanvasUri(uri);
+        setExploreOpened(true);
+        setMode("explore");
+      }),
+    []
+  );
+
+  /** Carries out what a tour step asks of the app. */
+  const runTourActions = useCallback(
+    async (actions: readonly TourAction[]) => {
+      for (const action of actions) {
+        switch (action.kind) {
+          case "mode":
+            if (action.mode === "explore") {
+              setExploreOpened(true);
+            }
+            setMode(action.mode);
+            break;
+          case "query":
+            setQuery(action.text);
+            setActiveExample(undefined);
+            // Whatever was on screen answered a different question.
+            clearResults();
+            setMode("query");
+            break;
+          case "connection":
+            setActiveId(action.id);
+            break;
+          case "run":
+            void execRef.current();
+            break;
+          case "resource":
+            openResource(action.uri);
+            break;
+          case "canvas":
+            await handToCanvas(action.uri);
+            // Let the node settle before the next one asks what it links to.
+            await new Promise((resolve) => setTimeout(resolve, 250));
+            break;
+          case "sidebar":
+            setSidebarOpen(action.open);
+            break;
+        }
+      }
+    },
+    [handToCanvas, openResource]
+  );
+
+  /**
+   * The tour switches connection and puts its own query in the editor, which
+   * on a relaunch means overwriting whatever was there. A first visit has
+   * nothing to lose, but someone reaching for it from the sidebar might.
+   */
+  const startTour = async () => {
+    const ownWork = query.trim() !== "" && query !== defaultExample.query;
+
+    if (
+      ownWork &&
+      !(await confirm({
+        title: "Start the tour?",
+        message:
+          "It runs against the built-in TBBT store and puts its own query in the editor, replacing what is there now.",
+        confirmLabel: "Start the tour",
+      }))
+    ) {
+      return;
+    }
+
+    setTour("running");
+  };
+
+  const endTour = useCallback((choice: "taken" | "declined") => {
+    saveTourChoice(choice);
+    setTour("idle");
+  }, []);
+
   const recordResource = useCallback(
     (connectionId: string, uri: string, label?: string, statements?: number) => {
       setResourceHistory((current) =>
@@ -570,7 +671,7 @@ const Interface = () => {
 
   return (
     <div className="app">
-      <header className="app-header">
+      <header className="app-header" inert={tour === "running"}>
         <div className="brand">
           <button
             className="icon-btn"
@@ -727,7 +828,10 @@ const Interface = () => {
         </div>
       ) : null}
 
-      <div className={`app-body${sidebarOpen ? " with-sidebar" : ""}`}>
+      <div
+        className={`app-body${sidebarOpen ? " with-sidebar" : ""}`}
+        inert={tour === "running"}
+      >
         {sidebarOpen ? (
           <button
             className="sidebar-backdrop"
@@ -782,6 +886,7 @@ const Interface = () => {
               setHistory((current) => ({ ...current, [activeConnection.id]: [] }))
             }
             onClearStoredData={() => void resetEverything()}
+            onStartTour={() => void startTour()}
           />
         ) : null}
 
@@ -793,7 +898,11 @@ const Interface = () => {
             hidden={mode !== "explore"}
             incomingCanvas={initial.canvas}
             pendingUri={pendingCanvasUri}
-            onPendingUriConsumed={() => setPendingCanvasUri(undefined)}
+            onPendingUriConsumed={() => {
+            setPendingCanvasUri(undefined);
+            canvasTaken.current?.();
+            canvasTaken.current = undefined;
+          }}
             onOpenResource={openResource}
             onOpenQuery={(text) => {
               setQuery(text);
@@ -835,7 +944,7 @@ const Interface = () => {
         />
 
         <main className="workspace" hidden={mode !== "query"}>
-          <section className="panel" aria-label="Query">
+          <section className="panel" aria-label="Query" data-tour="editor">
             <div className="panel-header">
               <span className="panel-title">Query</span>
               <div className="panel-header-actions">
@@ -855,6 +964,7 @@ const Interface = () => {
                   className="icon-btn"
                   type="button"
                   onClick={() => setSharing(true)}
+                  data-tour="share"
                   aria-label="Share this query"
                   data-tooltip="Get a link to this query"
                 >
@@ -864,6 +974,7 @@ const Interface = () => {
                   className="btn-run"
                   onClick={() => (running ? pending.current?.abort() : execQuery())}
                   type="button"
+                  data-tour="run"
                 >
                   {running ? <SpinnerIcon /> : null}
                   {running ? "Cancel" : "Run query"}
@@ -929,7 +1040,7 @@ const Interface = () => {
             </div>
           </section>
 
-          <section className="panel" aria-label="Results">
+          <section className="panel" aria-label="Results" data-tour="results">
             <div className="panel-header">
               <span className="panel-title">Results</span>
               {stats && !running ? (
@@ -1023,6 +1134,21 @@ const Interface = () => {
             setEditing(undefined);
             setCreating(false);
           }}
+        />
+      ) : null}
+
+      {tour === "inviting" ? (
+        <TourInvite
+          onAccept={() => setTour("running")}
+          onDecline={() => endTour("declined")}
+        />
+      ) : null}
+
+      {tour === "running" ? (
+        <Tour
+          onAct={runTourActions}
+          onFinish={() => endTour("taken")}
+          onSkip={() => endTour("taken")}
         />
       ) : null}
     </div>

@@ -1,5 +1,6 @@
-import { expect, test } from "@playwright/test";
 import {
+  expect,
+  test,
   addMockConnection,
   watchRequests,
   addRowToCanvas,

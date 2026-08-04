@@ -47,6 +47,7 @@ type Props = {
   onDeleteResource: (entry: ResourceEntry) => void;
   onClearResources: () => void;
   onClearStoredData: () => void;
+  onStartTour: () => void;
 };
 
 const Sidebar: React.FC<Props> = ({
@@ -68,6 +69,7 @@ const Sidebar: React.FC<Props> = ({
   onDeleteResource,
   onClearResources,
   onClearStoredData,
+  onStartTour,
 }) => (
   <aside className="sidebar" aria-label="Connections and history">
     <section className="sidebar-section sidebar-section--connections">
@@ -280,9 +282,26 @@ const Sidebar: React.FC<Props> = ({
     )}
 
     <footer className="sidebar-footer">
-      <button className="btn-link is-danger" type="button" onClick={onClearStoredData}>
-        Clear all stored data
-      </button>
+      <div className="sidebar-footer-actions">
+        <button
+          className="btn-link is-danger"
+          type="button"
+          onClick={onClearStoredData}
+        >
+          Clear all stored data
+        </button>
+        <span className="sidebar-footer-sep" aria-hidden="true">
+          ·
+        </span>
+        <button
+          className="btn-link"
+          type="button"
+          onClick={onStartTour}
+          data-tooltip="Walk through the app again"
+        >
+          Tour
+        </button>
+      </div>
       <p className="sidebar-note">
         Connections and history live in this browser only.
       </p>

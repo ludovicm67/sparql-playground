@@ -291,17 +291,22 @@ const GraphCanvas: React.FC<Props> = ({
                 ? `M ${start.x} ${start.y} L ${finish.x} ${finish.y}`
                 : `M ${start.x} ${start.y} Q ${controlX} ${controlY} ${finish.x} ${finish.y}`;
 
-            // Fanning the curves apart is not enough on its own: labels are far
-            // wider than the gap between them. Slide each one to a different
-            // point along its own curve as well.
-            const t =
-              siblings.length === 1
-                ? 0.5
-                : 0.32 + (index / (siblings.length - 1)) * 0.36;
-            const labelX =
+            // Halfway along, where sibling curves are furthest apart — sliding
+            // labels to different points instead would push them back towards
+            // the shared endpoints, which is where the curves converge, and on
+            // a short edge that put them straight on top of each other.
+            const t = 0.5;
+            const curveX =
               (1 - t) * (1 - t) * start.x + 2 * (1 - t) * t * controlX + t * t * finish.x;
-            const labelY =
+            const curveY =
               (1 - t) * (1 - t) * start.y + 2 * (1 - t) * t * controlY + t * t * finish.y;
+
+            // The curve alone separates adjacent labels by half the spread,
+            // which is narrower than the words themselves; push them out by as
+            // much again.
+            const nudge = spread * 0.5;
+            const labelX = curveX - (frameY / frameLength) * nudge;
+            const labelY = curveY + (frameX / frameLength) * nudge;
 
             return (
               <g key={edge.id} className={`edge${active ? " is-active" : ""}`}>

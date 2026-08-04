@@ -272,6 +272,7 @@ const ResourceView: React.FC<Props> = ({
                 type="button"
                 onClick={() => onOpenQuery(resourceQuery(uri || draft.trim()))}
                 disabled={!valid}
+                data-tour="resource-query"
                 aria-label="Open as a query"
                 data-tooltip="Open the query behind this page"
               >
@@ -282,6 +283,7 @@ const ResourceView: React.FC<Props> = ({
                 type="button"
                 onClick={() => onAddToCanvas(uri || draft.trim())}
                 disabled={!valid}
+                data-tour="resource-canvas"
                 aria-label="Add to the canvas"
                 data-tooltip="Add this resource to the Explore canvas"
               >
@@ -338,7 +340,7 @@ const ResourceView: React.FC<Props> = ({
           ) : null}
 
           {details ? (
-            <article className="resource">
+            <article className="resource" data-tour="resource">
               <header className="resource-header">
                 <h2 className="resource-title">
                   {details.label ?? localName(details.uri)}

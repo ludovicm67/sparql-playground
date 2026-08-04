@@ -1,5 +1,4 @@
-import { expect, test } from "@playwright/test";
-import { waitForApp, waitForEditor } from "./support";
+import { expect, test, waitForApp, waitForEditor } from "./support";
 
 const background = (page: import("@playwright/test").Page) =>
   page.evaluate(() => getComputedStyle(document.body).backgroundColor);

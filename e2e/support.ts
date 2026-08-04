@@ -1,4 +1,37 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, test as base, type Browser, type Page } from "@playwright/test";
+import { STORAGE_KEYS } from "../lib/storage";
+
+/**
+ * The app offers a guided tour on a first visit, which would otherwise cover
+ * the interface in every spec here. This `test` arrives as a returning
+ * visitor; `e2e/tour.spec.ts` imports the bare one to exercise the offer.
+ */
+export const test = base.extend({
+  page: async ({ page }, use) => {
+    await page.addInitScript(
+      (key: string) => localStorage.setItem(key, JSON.stringify("declined")),
+      STORAGE_KEYS.tour
+    );
+    await use(page);
+  },
+});
+
+export { expect };
+
+/**
+ * A second browser page, as a stranger opening a shared link would see it —
+ * but past the first-visit invitation, which is not what those tests are
+ * about. `browser.newPage()` makes its own context, so storage is otherwise
+ * clean, which is the point of them.
+ */
+export const openRecipient = async (browser: Browser) => {
+  const page = await browser.newPage();
+  await page.addInitScript(
+    (key: string) => localStorage.setItem(key, JSON.stringify("declined")),
+    STORAGE_KEYS.tour
+  );
+  return page;
+};
 
 export const MOCK_URL = "http://127.0.0.1:4567";
 

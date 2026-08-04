@@ -164,18 +164,6 @@ const Explore: React.FC<Props> = ({
     [connection, store]
   );
 
-  // An IRI handed over from the resource page: place it, then tell the parent
-  // so it is not re-added on the next render.
-  const addTermRef = useRef<((kind: NodeKind, term: TermRef) => void) | undefined>(
-    undefined
-  );
-  useEffect(() => {
-    if (!pendingUri) {
-      return;
-    }
-    addTermRef.current?.("instance", { type: "uri", value: pendingUri });
-    onPendingUriConsumed?.();
-  }, [pendingUri, onPendingUriConsumed]);
 
   /** Fetch display labels for a page of IRIs; failure is not worth surfacing. */
   const labelsFor = useCallback(
@@ -347,9 +335,32 @@ const Explore: React.FC<Props> = ({
     [centreOfView, discoverLinks, nameNodes, setGraph]
   );
 
+  /**
+   * An IRI handed over from the resource page: place it, then tell the parent
+   * so it is not re-added on the next render.
+   *
+   * Declared after `addTerm` and calling it directly. It used to go through a
+   * ref assigned by an effect further down, which on the very first mount had
+   * not run yet — so the node was dropped while still being reported as taken,
+   * and "add to the canvas" from a resource silently did nothing in a fresh
+   * session. Re-adding is prevented by remembering what was taken, reset when
+   * the parent clears the handover.
+   */
+  const takenUri = useRef<string | undefined>(undefined);
   useEffect(() => {
-    addTermRef.current = (kind, term) => addTerm(kind, term);
-  }, [addTerm]);
+    if (!pendingUri) {
+      takenUri.current = undefined;
+      return;
+    }
+
+    if (takenUri.current === pendingUri) {
+      return;
+    }
+
+    takenUri.current = pendingUri;
+    addTerm("instance", { type: "uri", value: pendingUri });
+    onPendingUriConsumed?.();
+  }, [pendingUri, addTerm, onPendingUriConsumed]);
 
   /**
    * Objects reached through a predicate already carry their edge, so they are

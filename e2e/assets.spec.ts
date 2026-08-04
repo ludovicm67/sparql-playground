@@ -1,6 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { expect, test } from "@playwright/test";
-import { waitForEditor } from "./support";
+import { expect, test, waitForEditor } from "./support";
 
 /**
  * The editor used to be pulled from a CDN at runtime, which meant the version
