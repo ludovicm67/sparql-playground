@@ -133,5 +133,33 @@ export const confirmDialog = async (page: Page, accept = true) => {
 /** The app's tooltip layer, if one is currently showing. */
 export const tooltip = (page: Page) => page.locator("#app-tooltip");
 
-/** How many requests the mock has served so far. */
-export const mockRequestCount = async () => (await mockLog()).length;
+/**
+ * Counts the requests *this page* makes to the mock endpoint.
+ *
+ * Deliberately not built on the mock's own log: that log is shared by every
+ * worker, so a test asserting "this gesture issued no requests" would count
+ * whatever another spec happened to run at the same moment. Filtering the log
+ * by endpoint path is not enough either — several tests here share a path and
+ * `fullyParallel` lets them overlap. A listener on the page sees only the page.
+ */
+export const watchRequests = (page: Page, path: string) => {
+  let count = 0;
+  const seen: string[] = [];
+
+  const listener = (request: { url: () => string }) => {
+    if (request.url().startsWith(`${MOCK_URL}${path}`)) {
+      count += 1;
+      seen.push(request.url());
+    }
+  };
+
+  page.on("request", listener);
+
+  return {
+    count: () => count,
+    /** Distinct URLs seen, so a failure can say what was requested without
+        printing the same line eighty times. */
+    urls: () => [...new Set(seen)],
+    stop: () => page.off("request", listener),
+  };
+};

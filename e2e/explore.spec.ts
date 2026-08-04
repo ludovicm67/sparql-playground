@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
   addMockConnection,
-  mockRequestCount,
+  watchRequests,
   addRowToCanvas,
   canvasStatus,
   edgeLabels,
@@ -372,7 +372,7 @@ test("dragging a node does not re-query the endpoint", async ({ page }) => {
   await expect(page.locator(".inspector .explore-row-primary").first()).toBeVisible();
   await page.waitForTimeout(800);
 
-  const before = await mockRequestCount();
+  const watch = watchRequests(page, "/triangle");
 
   const box = (await page.locator(".node").first().boundingBox())!;
   await page.mouse.move(box.x + 60, box.y + 20);
@@ -383,8 +383,11 @@ test("dragging a node does not re-query the endpoint", async ({ page }) => {
   await page.mouse.up();
   await page.waitForTimeout(1200);
 
-  const during = (await mockRequestCount()) - before;
-  expect(during, `the drag issued ${during} requests`).toBe(0);
+  watch.stop();
+  expect(
+    watch.count(),
+    `the drag issued ${watch.count()} requests: ${watch.urls().slice(0, 3).join(", ")}`
+  ).toBe(0);
 
   // The node really did move, and the inspector is still usable afterwards.
   const after = (await page.locator(".node").first().boundingBox())!;
@@ -401,7 +404,7 @@ test("panning and zooming the canvas queries nothing either", async ({ page }) =
   await addRowToCanvas(page, "Alpha");
   await page.waitForTimeout(800);
 
-  const before = await mockRequestCount();
+  const watch = watchRequests(page, "/triangle");
   const canvas = (await page.locator(".canvas").boundingBox())!;
 
   await page.mouse.move(canvas.x + 600, canvas.y + 500);
@@ -411,5 +414,9 @@ test("panning and zooming the canvas queries nothing either", async ({ page }) =
   await page.mouse.wheel(0, -240);
   await page.waitForTimeout(1000);
 
-  expect((await mockRequestCount()) - before).toBe(0);
+  watch.stop();
+  expect(
+    watch.count(),
+    `panning and zooming issued ${watch.count()} requests: ${watch.urls().slice(0, 3).join(", ")}`
+  ).toBe(0);
 });
