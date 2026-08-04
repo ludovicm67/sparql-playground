@@ -33,6 +33,10 @@
   --radius: 12px;
   --radius-sm: 7px;
 
+  /* Width of the reading column in Resource mode, shared by the content and
+     the bar above it so the two line up. */
+  --resource-width: 900px;
+
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
     Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
@@ -1982,10 +1986,33 @@ a {
 
 .workspace--resource {
   grid-template-columns: minmax(0, 1fr);
+  /* One panel, so one row. Without this the shared two-row rule for narrow
+     screens strands the resource in the top half of the viewport, cutting the
+     content off against empty space. */
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .resource-panel {
   min-width: 0;
+}
+
+/* The bar carries the padding instead of the header, so that it lines up with
+   the reading column below rather than sitting against the panel edge. */
+.resource-panel .panel-header {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.resource-bar {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  width: 100%;
+  max-width: var(--resource-width);
+  margin: 0 auto;
+  padding: 0 26px;
 }
 
 .resource-form {
@@ -1999,7 +2026,6 @@ a {
 .resource-input {
   flex: 1;
   min-width: 0;
-  max-width: 720px;
 }
 
 .resource-body {
@@ -2007,7 +2033,7 @@ a {
 }
 
 .resource {
-  max-width: 900px;
+  max-width: var(--resource-width);
   margin: 0 auto;
   padding: 24px 26px 48px;
 }

@@ -171,3 +171,33 @@ test("puts outgoing statements before incoming ones", async ({ page }) => {
   );
   expect(query).toContain("ORDER BY ?rank ?predicate");
 });
+
+test("fills the height it is given on a narrow screen", async ({ page }) => {
+  // Resource mode has a single panel, but the narrow-screen layout is a
+  // two-row grid: without an override the panel took the top row and the
+  // content was cut off against empty space.
+  await page.setViewportSize({ width: 430, height: 900 });
+  await page.goto("/?mode=resource&uri=urn:tbbt:sheldon-cooper");
+  await waitForApp(page);
+  await expect(page.locator(".resource-title")).toBeVisible();
+
+  const workspace = await page.locator(".workspace:not([hidden])").boundingBox();
+  const panel = await page.locator(".resource-panel").boundingBox();
+
+  // Only the workspace padding should separate the two.
+  expect(panel!.height).toBeGreaterThan(workspace!.height - 40);
+});
+
+test("lines the IRI input up with the content below it", async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await page.goto("/?mode=resource&uri=urn:tbbt:sheldon-cooper");
+  await waitForApp(page);
+  await expect(page.locator(".resource-title")).toBeVisible();
+
+  const input = await page.locator(".resource-input").boundingBox();
+  const title = await page.locator(".resource-title").boundingBox();
+
+  // Left edges share the reading column rather than the input hugging the
+  // far left of a very wide panel.
+  expect(Math.abs(input!.x - title!.x)).toBeLessThan(2);
+});

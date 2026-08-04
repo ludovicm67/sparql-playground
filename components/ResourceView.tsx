@@ -247,53 +247,57 @@ const ResourceView: React.FC<Props> = ({
     <main className="workspace workspace--resource" hidden={hidden}>
       <section className="panel resource-panel" aria-label="Resource">
         <div className="panel-header">
-          <form className="resource-form" onSubmit={submit}>
-            <input
-              className="input resource-input"
-              value={draft}
-              placeholder="http://example.org/resource"
-              inputMode="url"
-              spellCheck={false}
-              aria-label="Resource IRI"
-              onChange={(event) => setDraft(event.target.value)}
-            />
-            <button className="btn-run" type="submit" disabled={!valid || loading}>
-              {loading ? <SpinnerIcon /> : null}
-              {loading ? "Loading…" : "Dereference"}
-            </button>
-          </form>
+          {/* Held to the width of the reading column below, so the input lines
+              up with the resource instead of drifting off to the left. */}
+          <div className="resource-bar">
+            <form className="resource-form" onSubmit={submit}>
+              <input
+                className="input resource-input"
+                value={draft}
+                placeholder="http://example.org/resource"
+                inputMode="url"
+                spellCheck={false}
+                aria-label="Resource IRI"
+                onChange={(event) => setDraft(event.target.value)}
+              />
+              <button className="btn-run" type="submit" disabled={!valid || loading}>
+                {loading ? <SpinnerIcon /> : null}
+                {loading ? "Loading…" : "Dereference"}
+              </button>
+            </form>
 
-          <div className="panel-header-actions">
-            <button
-              className="icon-btn"
-              type="button"
-              onClick={() => onOpenQuery(resourceQuery(uri || draft.trim()))}
-              disabled={!valid}
-              aria-label="Open as a query"
-              data-tooltip="Open the query behind this page"
-            >
-              <QueryIcon size={14} />
-            </button>
-            <button
-              className="icon-btn"
-              type="button"
-              onClick={() => onAddToCanvas(uri || draft.trim())}
-              disabled={!valid}
-              aria-label="Add to the canvas"
-              data-tooltip="Add this resource to the Explore canvas"
-            >
-              <GraphIcon size={14} />
-            </button>
-            <button
-              className="icon-btn"
-              type="button"
-              onClick={onShare}
-              disabled={!valid}
-              aria-label="Share this resource"
-              data-tooltip="Get a link to this resource"
-            >
-              <ShareIcon size={14} />
-            </button>
+            <div className="panel-header-actions">
+              <button
+                className="icon-btn"
+                type="button"
+                onClick={() => onOpenQuery(resourceQuery(uri || draft.trim()))}
+                disabled={!valid}
+                aria-label="Open as a query"
+                data-tooltip="Open the query behind this page"
+              >
+                <QueryIcon size={14} />
+              </button>
+              <button
+                className="icon-btn"
+                type="button"
+                onClick={() => onAddToCanvas(uri || draft.trim())}
+                disabled={!valid}
+                aria-label="Add to the canvas"
+                data-tooltip="Add this resource to the Explore canvas"
+              >
+                <GraphIcon size={14} />
+              </button>
+              <button
+                className="icon-btn"
+                type="button"
+                onClick={onShare}
+                disabled={!valid}
+                aria-label="Share this resource"
+                data-tooltip="Get a link to this resource"
+              >
+                <ShareIcon size={14} />
+              </button>
+            </div>
           </div>
         </div>
 
